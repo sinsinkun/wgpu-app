@@ -1,19 +1,61 @@
+#![allow(dead_code)]
+
 use std::sync::Arc;
+use std::num::NonZeroU64;
+use std::ops::Range;
+
 use winit::window::Window;
 use winit::event::WindowEvent;
 use winit::event::{ElementState, KeyEvent};
 
-pub struct State<'a> {
+use wgpu::*;
+
+// -- HELPER STRUCTS --
+pub struct RObject {
+  visible: bool,
+  vertex_buffer: wgpu::Buffer,
+  uv_buffer: wgpu::Buffer,
+  normal_buffer: wgpu::Buffer,
+  vertex_count: usize,
+  pipe_index: usize,
+}
+
+pub struct RBindGroup {
+  base: wgpu::BindGroup,
+  entries: Vec<wgpu::Buffer>,
+}
+
+pub struct RPipeline {
+  pipe: wgpu::RenderPipeline,
+  objects: Vec<RObject>,
+  max_obj_count: usize,
+  bind_group0: RBindGroup,
+  // bind_group1: Option<RBindGroup>,
+  // bind_group2: Option<RBindGroup>,
+  // bind_group3: Option<RBindGroup>,
+}
+
+pub type RObjectId = usize;
+pub type RPipelineId = usize;
+pub type RTextureId = usize;
+
+// -- PRIMARY RENDERER INTERFACE --
+pub struct Renderer<'a> {
   surface: wgpu::Surface<'a>,
   device: wgpu::Device,
   queue: wgpu::Queue,
   config: wgpu::SurfaceConfiguration,
+  msaa: wgpu::Texture,
+  zbuffer: wgpu::Texture,
+  limits: wgpu::Limits,
   pub size: winit::dpi::PhysicalSize<u32>,
+  pub pipelines: Vec<RPipeline>,
+  pub textures: Vec<wgpu::Texture>
 }
 
-impl<'a> State<'a> {
+impl<'a> Renderer<'a> {
   // Creating some of the wgpu types requires async code
-  pub async fn new(window: Arc<Window>) -> State<'a> {
+  pub async fn new(window: Arc<Window>) -> Renderer<'a> {
     let size = window.inner_size();
 
     // The instance is a handle to our GPU
@@ -64,12 +106,47 @@ impl<'a> State<'a> {
       desired_maximum_frame_latency: 2,
     };
 
+    let texture_size = wgpu::Extent3d {
+      width: config.width,
+      height: config.height,
+      depth_or_array_layers: 1,
+    };
+
+    // create msaa texture
+    let msaa = device.create_texture(&wgpu::TextureDescriptor {
+      label: Some("msaa-texture"),
+      size: texture_size,
+      sample_count: 4,
+      mip_level_count: 1,
+      dimension: wgpu::TextureDimension::D2,
+      format: surface_format,
+      usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+      view_formats: &[]
+    });
+
+    // create zbuffer texture
+    let zbuffer = device.create_texture(&wgpu::TextureDescriptor {
+      label: Some("zbuffer-texture"),
+      size: texture_size,
+      sample_count: 4,
+      mip_level_count: 1,
+      dimension: wgpu::TextureDimension::D2,
+      format: wgpu::TextureFormat::Depth24Plus,
+      usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+      view_formats: &[]
+    });
+
     return Self {
       surface,
       device,
       queue,
       config,
       size,
+      pipelines: Vec::new(),
+      textures: Vec::new(),
+      msaa,
+      zbuffer,
+      limits: Limits::default(),
     };
   }
 
@@ -79,6 +156,8 @@ impl<'a> State<'a> {
       self.config.width = new_size.width;
       self.config.height = new_size.height;
       self.surface.configure(&self.device, &self.config);
+      // todo: remake msaa texture
+      // todo: remake zbuffer texture
     }
   }
 
@@ -106,18 +185,278 @@ impl<'a> State<'a> {
     // todo
   }
 
-  pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-    let output = self.surface.get_current_texture()?;
-    let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-      label: Some("render-encoder")
+  pub fn add_texture(&mut self, width: u32, height: u32, texture_data: Option<&[u8]>) -> RTextureId {
+    let id = self.textures.len();
+    let texture_size = Extent3d { width, height, depth_or_array_layers: 1 };
+    // create texture
+    let texture = self.device.create_texture(&TextureDescriptor {
+      label: Some("input-texture"),
+      size: texture_size,
+      sample_count: 1,
+      mip_level_count: 1,
+      dimension: TextureDimension::D2,
+      format: TextureFormat::Rgba8Unorm,
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+      view_formats: &[]
     });
+    if let Some(data) = texture_data {
+      // copy image into texture
+      self.queue.write_texture(
+        ImageCopyTexture {
+          texture: &texture,
+          mip_level: 0,
+          origin: Origin3d::ZERO,
+          aspect: TextureAspect::All,
+        }, 
+        data,
+        ImageDataLayout {
+          offset: 0,
+          bytes_per_row: Some(4 * width),
+          rows_per_image: Some(height),
+        },
+        texture_size
+      );
+    }
+    // add to cache
+    self.textures.push(texture);
+    id
+  }
+
+  pub fn update_texture() {
+    todo!()
+  }
+
+  pub fn update_texture_size() {
+    todo!()
+  }
+
+  pub fn add_pipeline(
+    &mut self,
+    shader: ShaderSource,
+    max_obj_count: usize,
+    texture_id: Option<usize>,
+    cull_mode: Option<Face>,
+  ) -> RPipelineId {
+    let id: usize = self.pipelines.len();
+
+    // build render pipeline
+    let shader_mod = self.device.create_shader_module(ShaderModuleDescriptor {
+      label: Some("shader-module"),
+      source: shader,
+    });
+    let bind_group_layout = self.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+      label: Some("bind-group-layout"),
+      entries: &[
+        // mvp matrix
+        BindGroupLayoutEntry {
+          binding: 0,
+          visibility: ShaderStages::VERTEX,
+          ty: BindingType::Buffer {
+            ty: BufferBindingType::Uniform,
+            has_dynamic_offset: true,
+            min_binding_size: None,
+          },
+          count: None,
+        },
+        // texture
+        BindGroupLayoutEntry {
+          binding: 1,
+          visibility: ShaderStages::FRAGMENT,
+          ty: BindingType::Texture {
+            sample_type: TextureSampleType::Float { filterable: true },
+            view_dimension: TextureViewDimension::D2,
+            multisampled: false,
+          },
+          count: None,
+        },
+        // texture sampler
+        BindGroupLayoutEntry {
+          binding: 2,
+          visibility: ShaderStages::FRAGMENT,
+          ty: BindingType::Sampler(SamplerBindingType::Filtering),
+          count: None,
+        },
+      ]
+    });
+    let pipeline_layout = self.device.create_pipeline_layout(&PipelineLayoutDescriptor {
+      label: Some("pipeline-layout"),
+      bind_group_layouts: &[&bind_group_layout],
+      push_constant_ranges: &[]
+    });
+    let pipeline = self.device.create_render_pipeline(&RenderPipelineDescriptor {
+      label: Some("render-pipeline"),
+      layout: Some(&pipeline_layout),
+      vertex: VertexState {
+        module: &shader_mod,
+        entry_point: "vertexMain",
+        buffers: &[
+          VertexBufferLayout {
+            array_stride: 12, // 4 bytes * 3
+            attributes: &[VertexAttribute {
+              format: VertexFormat::Float32x3,
+              offset:0,
+              shader_location: 0
+            }],
+            step_mode: VertexStepMode::Vertex
+          },
+          VertexBufferLayout {
+            array_stride: 8, // 4 bytes * 2
+            attributes: &[VertexAttribute {
+              format: VertexFormat::Float32x2,
+              offset:0,
+              shader_location: 1
+            }],
+            step_mode: VertexStepMode::Vertex
+          },
+          VertexBufferLayout {
+            array_stride: 12, // 4 bytes * 3
+            attributes: &[VertexAttribute {
+              format: VertexFormat::Float32x3,
+              offset:0,
+              shader_location: 2
+            }],
+            step_mode: VertexStepMode::Vertex
+          },
+        ],
+        compilation_options: PipelineCompilationOptions::default(),
+      },
+      fragment: Some(FragmentState{
+        module: &shader_mod,
+        entry_point: "fragmentMain",
+        targets: &[],
+        compilation_options: PipelineCompilationOptions::default(),
+      }),
+      multisample: MultisampleState {
+        count: 4,
+        mask: 512,
+        alpha_to_coverage_enabled: true,
+      },
+      depth_stencil: Some(DepthStencilState {
+        format: TextureFormat::Depth24Plus,
+        depth_write_enabled: true,
+        depth_compare: CompareFunction::LessEqual,
+        stencil: StencilState::default(),
+        bias: DepthBiasState::default(),
+      }),
+      primitive: PrimitiveState {
+        cull_mode,
+        ..Default::default()
+      },
+      multiview: None,
+    });
+
+    // build bind group
+    let bind_group: RBindGroup = self.add_bind_group(&pipeline, max_obj_count, texture_id);
+    // add to cache
+    let pipe = RPipeline {
+      pipe: pipeline,
+      objects: Vec::new(),
+      max_obj_count,
+      bind_group0: bind_group,
+    };
+    self.pipelines.push(pipe);
+    id
+  }
+
+  fn add_bind_group(&self, pipeline: &RenderPipeline, max_obj_count: usize, texture_id: Option<usize>) -> RBindGroup {
+    let min_stride = self.limits.min_uniform_buffer_offset_alignment;
+    // create mvp buffer
+    let mvp_buffer = self.device.create_buffer(&BufferDescriptor {
+      label: Some("mvp-uniform-buffer"),
+      size: min_stride as u64 * max_obj_count as u64,
+      usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+      mapped_at_creation: false,
+    });
+    // create texture
+    let texture_view: TextureView;
+    let texture_size = Extent3d {
+      width: 10,
+      height: 10,
+      depth_or_array_layers: 1,
+    };
+    let ftexture = self.device.create_texture(&TextureDescriptor {
+      label: Some("input-texture"),
+      size: texture_size,
+      sample_count: 1,
+      mip_level_count: 1,
+      dimension: TextureDimension::D2,
+      format: TextureFormat::Rgba8Unorm,
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+      view_formats: &[]
+    });
+    if let Some(tx_id) = texture_id {
+      texture_view = self.textures[tx_id].create_view(&TextureViewDescriptor::default());
+    } else {
+      texture_view = ftexture.create_view(&TextureViewDescriptor::default());
+    }
+    // create sampler
+    let sampler = self.device.create_sampler(&SamplerDescriptor {
+      label: Some("texture-sampler"),
+      address_mode_u: AddressMode::ClampToEdge,
+      address_mode_v: AddressMode::ClampToEdge,
+      address_mode_w: AddressMode::ClampToEdge,
+      mag_filter: FilterMode::Linear,
+      min_filter: FilterMode::Nearest,
+      mipmap_filter: FilterMode::Nearest,
+      ..Default::default()
+    });
+    // create bind group
+    let mvp_size = NonZeroU64::new(192); // 4 bytes * 4 rows * 4 columns * 3 matrices
+    let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+      label: Some("bind-group-0"),
+      layout: &pipeline.get_bind_group_layout(0),
+      entries: &[
+        BindGroupEntry {
+          binding: 0,
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &mvp_buffer, offset: 0, size: mvp_size
+          })
+        },
+        BindGroupEntry {
+          binding: 1,
+          resource: BindingResource::TextureView(&texture_view)
+        },
+        BindGroupEntry {
+          binding: 2,
+          resource: BindingResource::Sampler(&sampler)
+        },
+      ]
+    });
+
+    return RBindGroup {
+      base: bind_group,
+      entries: vec![mvp_buffer]
+    }
+  }
+
+  pub fn add_object() -> RObjectId {
+    0
+  }
+
+  pub fn update_object() {
+
+  }
+
+  pub fn render(&mut self, pipeline_ids: &[usize], target_id: Option<usize>) -> Result<(), wgpu::SurfaceError> {
+    let output = self.surface.get_current_texture()?;
+    let view = self.msaa.create_view(&TextureViewDescriptor::default());
+    let target = match target_id {
+      Some(id) => {
+        let tx = &self.textures[id];
+        tx.create_view(&TextureViewDescriptor::default())
+      },
+      None => output.texture.create_view(&wgpu::TextureViewDescriptor::default())
+    };
+    let mut encoder = self.device.create_command_encoder(
+      &wgpu::CommandEncoderDescriptor { label: Some("render-encoder") }
+    );
     {
-      let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+      // new context so ownership of encoder is released after pass finishes
+      let mut _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
         label: Some("render-pass"),
         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
           view: &view,
-          resolve_target: None,
+          resolve_target: Some(&target),
           ops: wgpu::Operations {
             load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.01, g: 0.02, b: 0.05, a: 1.0 }),
             store: wgpu::StoreOp::Store,
@@ -127,6 +466,20 @@ impl<'a> State<'a> {
         occlusion_query_set: None,
         timestamp_writes: None,
       });
+      // add objects to render
+      for p_id in pipeline_ids {
+        let pipeline = &self.pipelines[*p_id];
+        for obj in &pipeline.objects {
+          if !obj.visible { continue; }
+          let stride = self.limits.min_uniform_buffer_offset_alignment * obj.pipe_index as u32;
+          _pass.set_pipeline(&pipeline.pipe);
+          _pass.set_vertex_buffer(0, obj.vertex_buffer.slice(0..));
+          _pass.set_vertex_buffer(1, obj.uv_buffer.slice(0..));
+          _pass.set_vertex_buffer(2, obj.normal_buffer.slice(0..));
+          _pass.set_bind_group(0, &pipeline.bind_group0.base, &[stride]);
+          _pass.draw(Range{ start:0, end:obj.vertex_count as u32 }, Range{ start:0, end:1 });
+        }
+      }
     }
 
     self.queue.submit(std::iter::once(encoder.finish()));

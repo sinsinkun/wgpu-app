@@ -3,6 +3,7 @@ use std::thread;
 use std::time;
 
 use winit::application::ApplicationHandler;
+use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, KeyEvent, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{Key, NamedKey};
@@ -30,7 +31,7 @@ struct ControlFlowApp<'a> {
 	wait_cancelled: bool,
 	close_requested: bool,
 	window: Option<Arc<Window>>,
-	wgpu: Option<wgpu_root::State<'a>>,
+	wgpu: Option<wgpu_root::Renderer<'a>>,
 }
 
 impl ApplicationHandler for ControlFlowApp<'_> {
@@ -41,13 +42,22 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 		}
 	}
 
+	#[allow(unused_variables)]
 	fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-		let window_attributes = Window::default_attributes().with_title("Wgpu-rs");
+		let window_attributes = Window::default_attributes()
+			.with_min_inner_size(PhysicalSize::new(400.0, 300.0))
+			.with_title("Wgpu-rs");
 		let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 		self.window = Some(window.clone());
 
-		let state = pollster::block_on(wgpu_root::State::new(window.clone()));
+		let state = pollster::block_on(wgpu_root::Renderer::new(window.clone()));
 		self.wgpu = Some(state);
+		
+		// init stuff
+		if let Some(wgpu) = &mut self.wgpu {
+			let shader1 = wgpu::ShaderSource::Wgsl(include_str!("base.wgsl").into());
+			let pipe1 = wgpu.add_pipeline(shader1, 10, None, None);
+		}
 	}
 
 	fn window_event(
@@ -100,8 +110,8 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 						if let Some(wgpu) = &mut self.wgpu {
 							wgpu.update();
 							window.pre_present_notify();
-							match wgpu.render() {
-								Ok(_) => {},
+							match wgpu.render(&[], None) {
+								Ok(_) => (),
 								// Reconfigure the surface if lost
 								Err(wgpu::SurfaceError::Lost) => wgpu.resize(wgpu.size),
 								// The system is out of memory, we should probably quit
@@ -145,6 +155,11 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 		if self.close_requested {
 			event_loop.exit();
 		}
+	}
+
+	fn suspended(&mut self, event_loop: &ActiveEventLoop) {
+		println!("Suspended window");
+		let _ = event_loop;
 	}
 }
 
