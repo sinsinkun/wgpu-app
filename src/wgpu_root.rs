@@ -9,6 +9,7 @@ use winit::event::WindowEvent;
 use winit::event::{ElementState, KeyEvent};
 
 use wgpu::*;
+use crate::lin_alg::Mat4;
 
 // -- HELPER STRUCTS --
 pub struct RVertex {
@@ -48,6 +49,7 @@ pub type RTextureId = usize;
 // -- PRIMARY RENDERER INTERFACE --
 pub struct Renderer<'a> {
   surface: wgpu::Surface<'a>,
+  surface_format: wgpu::TextureFormat,
   device: wgpu::Device,
   queue: wgpu::Queue,
   config: wgpu::SurfaceConfiguration,
@@ -144,6 +146,7 @@ impl<'a> Renderer<'a> {
 
     return Self {
       surface,
+      surface_format,
       device,
       queue,
       config,
@@ -488,6 +491,15 @@ impl<'a> Renderer<'a> {
       pipe_index: id
     };
     pipe.objects.push(obj);
+    self.update_object(
+      pipeline_id,
+      id,
+      &[0.0, 0.0, 0.0],
+      &[0.0, 0.0, 1.0],
+      0.0,
+      &[1.0, 1.0, 1.0],
+      true
+    );
     id
   }
 
@@ -506,12 +518,29 @@ impl<'a> Renderer<'a> {
     let obj = &mut pipe.objects[object_id];
 
     obj.visible = visible;
-    // todo: mvp matrix
+    // model matrix
+    let model_t = Mat4::translate(translate[0], translate[1], translate[2]);
+    let model_r = Mat4::rotate(rotate_axis, rotate_deg);
+    let model_s = Mat4::scale(scale[0], scale[1], scale[2]);
+    let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_r, &model_s));
+    // view matrix
+    let view = Mat4::identity();
+    // projection matrix
+    let w2 = (self.config.width / 2) as f32;
+    let h2 = (self.config.height / 2) as f32;
+    let proj = Mat4::ortho(-w2, w2, -h2, h2, 0.0, 1000.0);
+    // merge together
+    let mut mvp: [f32; 16 * 3] = [0.0; 16 * 3];
+    for i in 0..(16 * 3) {
+      if i < 16 { mvp[i] = model[i]; }
+      else if i < 32 { mvp[i] = view[i - 16]; }
+      else { mvp[i] = proj[i - 32]; }
+    }
     let stride = self.limits.min_uniform_buffer_offset_alignment;
     self.queue.write_buffer(
       &pipe.bind_group0.entries[0], 
       (stride * obj.pipe_index as u32) as u64, 
-      &[]
+      bytemuck::cast_slice(&mvp)
     );
 
   }
@@ -524,7 +553,7 @@ impl<'a> Renderer<'a> {
         let tx = &self.textures[id];
         tx.create_view(&TextureViewDescriptor::default())
       },
-      None => output.texture.create_view(&wgpu::TextureViewDescriptor::default())
+      None => output.texture.create_view(&TextureViewDescriptor::default())
     };
     let mut encoder = self.device.create_command_encoder(
       &wgpu::CommandEncoderDescriptor { label: Some("render-encoder") }

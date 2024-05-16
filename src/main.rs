@@ -12,6 +12,8 @@ use winit::window::{Window, WindowId};
 mod wgpu_root;
 use wgpu_root::{RPipelineId, RVertex};
 
+mod lin_alg;
+
 // constants
 const WAIT_TIME: time::Duration = time::Duration::from_millis(20);
 const POLL_SLEEP_TIME: time::Duration = time::Duration::from_millis(100);
@@ -131,7 +133,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 						if let Some(wgpu) = &mut self.wgpu {
 							wgpu.update();
 							window.pre_present_notify();
-							match wgpu.render(&[], None) {
+							match wgpu.render(&[0], None) {
 								Ok(_) => (),
 								// Reconfigure the surface if lost
 								Err(wgpu::SurfaceError::Lost) => wgpu.resize(wgpu.size),
