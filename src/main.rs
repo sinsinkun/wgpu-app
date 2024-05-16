@@ -10,6 +10,7 @@ use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId};
 
 mod wgpu_root;
+use wgpu_root::{RPipelineId, RVertex};
 
 // constants
 const WAIT_TIME: time::Duration = time::Duration::from_millis(20);
@@ -24,7 +25,6 @@ enum Mode {
 	Poll,
 }
 
-#[derive(Default)]
 struct ControlFlowApp<'a> {
 	mode: Mode,
 	request_redraw: bool,
@@ -32,6 +32,19 @@ struct ControlFlowApp<'a> {
 	close_requested: bool,
 	window: Option<Arc<Window>>,
 	wgpu: Option<wgpu_root::Renderer<'a>>,
+}
+
+impl Default for ControlFlowApp<'_> {
+	fn default() -> Self {
+		ControlFlowApp {
+			mode: Mode::Wait,
+			request_redraw: false, // toggle true to refresh by default
+			wait_cancelled: false,
+			close_requested: false,
+			window: None,
+			wgpu: None
+		}
+	}
 }
 
 impl ApplicationHandler for ControlFlowApp<'_> {
@@ -42,7 +55,6 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 		}
 	}
 
-	#[allow(unused_variables)]
 	fn resumed(&mut self, event_loop: &ActiveEventLoop) {
 		let window_attributes = Window::default_attributes()
 			.with_min_inner_size(PhysicalSize::new(400.0, 300.0))
@@ -56,7 +68,16 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 		// init stuff
 		if let Some(wgpu) = &mut self.wgpu {
 			let shader1 = wgpu::ShaderSource::Wgsl(include_str!("base.wgsl").into());
-			let pipe1 = wgpu.add_pipeline(shader1, 10, None, None);
+			let pipe1: RPipelineId = wgpu.add_pipeline(shader1, 10, None, None);
+
+			let verts = vec![
+				RVertex { position:[0.0, 50.0, 0.0], uv: [1.0, 0.0], normal: [0.0,0.0,1.0] },
+				RVertex { position:[50.0, 50.0, 0.0], uv: [1.0, 0.0], normal: [0.0,0.0,1.0] },
+				RVertex { position:[50.0, 0.0, 0.0], uv: [1.0, 0.0], normal: [0.0,0.0,1.0] },
+			];
+
+			// declare vertex
+			wgpu.add_object(pipe1, &verts);
 		}
 	}
 
@@ -95,7 +116,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 								self.mode = Mode::Poll;
 								println!("mode: {:?}", self.mode);
 							},
-							Key::Named(NamedKey::F4) => {
+							Key::Named(NamedKey::Space) => {
 								self.request_redraw = !self.request_redraw;
 								println!("request_redraw: {}", self.request_redraw);
 							},

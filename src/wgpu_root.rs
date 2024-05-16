@@ -11,13 +11,19 @@ use winit::event::{ElementState, KeyEvent};
 use wgpu::*;
 
 // -- HELPER STRUCTS --
+pub struct RVertex {
+  pub position: [f32; 3],
+  pub uv: [f32; 2],
+  pub normal: [f32; 3],
+}
+
 pub struct RObject {
-  visible: bool,
+  pub visible: bool,
   vertex_buffer: wgpu::Buffer,
   uv_buffer: wgpu::Buffer,
   normal_buffer: wgpu::Buffer,
-  vertex_count: usize,
-  pipe_index: usize,
+  pub vertex_count: usize,
+  pub pipe_index: usize,
 }
 
 pub struct RBindGroup {
@@ -429,11 +435,84 @@ impl<'a> Renderer<'a> {
     }
   }
 
-  pub fn add_object() -> RObjectId {
-    0
+  pub fn add_object(&mut self, pipeline_id: RPipelineId, v_data: &Vec<RVertex>) -> RObjectId {
+    let pipe = &mut self.pipelines[pipeline_id];
+    let id = pipe.objects.len();
+
+    // create vertex buffer
+    let vlen = v_data.len();
+    let mut vertices: Vec<f32> = vec![0.0; vlen * 3];
+    let mut uvs: Vec<f32> = vec![0.0; vlen * 2];
+    let mut normals: Vec<f32> = vec![0.0; vlen * 3];
+    for i in 0..vlen {
+      vertices[i*3] = v_data[i].position[0];
+      vertices[i*3+1] = v_data[i].position[1];
+      vertices[i*3+2] = v_data[i].position[2];
+
+      uvs[i*2] = v_data[i].uv[0];
+      uvs[i*2+1] = v_data[i].uv[1];
+
+      normals[i*3] = v_data[i].normal[0];
+      normals[i*3+1] = v_data[i].normal[1];
+      normals[i*3+2] = v_data[i].normal[2];
+    }
+    let vert_buffer = self.device.create_buffer(&BufferDescriptor { 
+      label: Some("vertex-buffer"), 
+      size: (vlen * 3 * 4) as u64, 
+      usage: BufferUsages::VERTEX | BufferUsages::COPY_DST, 
+      mapped_at_creation: false
+    });
+    self.queue.write_buffer(&vert_buffer, 0, bytemuck::cast_slice(&vertices));
+    let uv_buffer = self.device.create_buffer(&BufferDescriptor { 
+      label: Some("uv-buffer"), 
+      size: (vlen * 2 * 4) as u64, 
+      usage: BufferUsages::VERTEX | BufferUsages::COPY_DST, 
+      mapped_at_creation: false
+    });
+    self.queue.write_buffer(&uv_buffer, 0, bytemuck::cast_slice(&uvs));
+    let normal_buffer = self.device.create_buffer(&BufferDescriptor { 
+      label: Some("normal-buffer"), 
+      size: (vlen * 3 * 4) as u64, 
+      usage: BufferUsages::VERTEX | BufferUsages::COPY_DST, 
+      mapped_at_creation: false
+    });
+    self.queue.write_buffer(&normal_buffer, 0, bytemuck::cast_slice(&normals));
+
+    // save to cache
+    let obj = RObject {
+      visible: true,
+      vertex_buffer: vert_buffer,
+      uv_buffer,
+      normal_buffer,
+      vertex_count: vlen,
+      pipe_index: id
+    };
+    pipe.objects.push(obj);
+    id
   }
 
-  pub fn update_object() {
+  pub fn update_object(
+    &mut self,
+    pipeline_id: RPipelineId,
+    object_id: RObjectId,
+    translate: &[f32; 3],
+    rotate_axis: &[f32; 3],
+    rotate_deg: f32,
+    scale: &[f32; 3],
+    visible: bool,
+    // camera: RCamera,
+  ) {
+    let pipe = &mut self.pipelines[pipeline_id];
+    let obj = &mut pipe.objects[object_id];
+
+    obj.visible = visible;
+    // todo: mvp matrix
+    let stride = self.limits.min_uniform_buffer_offset_alignment;
+    self.queue.write_buffer(
+      &pipe.bind_group0.entries[0], 
+      (stride * obj.pipe_index as u32) as u64, 
+      &[]
+    );
 
   }
 
