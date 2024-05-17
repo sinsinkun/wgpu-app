@@ -9,7 +9,6 @@ use winit::event::{ElementState, KeyEvent};
 use winit::keyboard::Key;
 
 use wgpu::*;
-use wgpu::util::{DeviceExt,BufferInitDescriptor};
 use bytemuck::{Pod, Zeroable};
 use crate::lin_alg::Mat4;
 
@@ -167,7 +166,7 @@ impl<'a> Renderer<'a> {
     };
   }
 
-  pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+  pub fn resize_canvas(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
     if new_size.width > 0 && new_size.height > 0 {
       self.size = new_size;
       self.config.width = new_size.width;
@@ -480,18 +479,13 @@ impl<'a> Renderer<'a> {
 
     // create vertex buffer
     let vlen = v_data.len();
-    // let v_buffer = self.device.create_buffer(&BufferDescriptor {
-    //   label: Some("vertex-buffer"),
-    //   size: (std::mem::size_of::<RVertex>() * vlen) as u64,
-    //   usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-    //   mapped_at_creation: false
-    // });
-    // self.queue.write_buffer(&v_buffer, 0, bytemuck::cast_slice(&v_data.as_slice()));
-    let v_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
+    let v_buffer = self.device.create_buffer(&BufferDescriptor {
       label: Some("vertex-buffer"),
-      contents: bytemuck::cast_slice(&v_data.as_slice()),
-      usage: BufferUsages::VERTEX,
+      size: (std::mem::size_of::<RVertex>() * vlen) as u64,
+      usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+      mapped_at_creation: false
     });
+    self.queue.write_buffer(&v_buffer, 0, bytemuck::cast_slice(&v_data.as_slice()));
 
     // save to cache
     let obj = RObject {
@@ -540,8 +534,8 @@ impl<'a> Renderer<'a> {
     let h2 = (self.config.height / 2) as f32;
     let proj = Mat4::ortho(-w2, w2, -h2, h2, 0.0, 1000.0);
     // merge together
-    let mut mvp: [f32; 16 * 3] = [0.0; 16 * 3];
-    for i in 0..(16 * 3) {
+    let mut mvp: [f32; 48] = [0.0; 48]; // 16 * 3 = 48
+    for i in 0..48 {
       if i < 16 { mvp[i] = model[i]; }
       else if i < 32 { mvp[i] = view[i - 16]; }
       else { mvp[i] = proj[i - 32]; }
@@ -607,7 +601,6 @@ impl<'a> Renderer<'a> {
 
     self.queue.submit(std::iter::once(encoder.finish()));
     output.present();
-    println!("Finished render pass");
 
     Ok(())
   }

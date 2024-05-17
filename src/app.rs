@@ -18,18 +18,20 @@ impl AppEventLoop<'_> {
     }
   }
 
+  // initialize app objects
   pub fn init(&mut self) {
     // initialize pipeline
     let shader1 = wgpu::ShaderSource::Wgsl(include_str!("base.wgsl").into());
     let pipe1: RPipelineId = self.renderer.add_pipeline(shader1, 10, None, None);
 
+    let size: f32 = 300.0;
     let verts = vec![
-      RVertex { position:[-100.0, 100.0, 0.0], uv: [0.0, 1.0], normal: [0.0,1.0,1.0] },
-      RVertex { position:[100.0, 100.0, 0.0], uv: [1.0, 1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position:[100.0, -100.0, 0.0], uv: [1.0, 0.0], normal: [1.0,0.0,1.0] },
-      RVertex { position:[100.0, -100.0, 0.0], uv: [0.0, 1.0], normal: [1.0,0.0,1.0] },
-      RVertex { position:[-100.0, -100.0, 0.0], uv: [1.0, 1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position:[-100.0, 100.0, 0.0], uv: [1.0, 0.0], normal: [0.0,1.0,1.0] },
+      RVertex { position:[-size, size, 0.0], uv: [0.0, 1.0], normal: [0.0,-1.0,1.0] },
+      RVertex { position:[size, size, 0.0], uv: [1.0, 1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position:[size, -size, 0.0], uv: [1.0, 0.0], normal: [-1.0,0.0,1.0] },
+      RVertex { position:[size, -size, 0.0], uv: [0.0, 1.0], normal: [-1.0,0.0,1.0] },
+      RVertex { position:[-size, -size, 0.0], uv: [1.0, 1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position:[-size, size, 0.0], uv: [1.0, 0.0], normal: [0.0,-1.0,1.0] },
     ];
     self.renderer.add_object(pipe1, &verts);
   }
@@ -57,7 +59,7 @@ impl AppEventLoop<'_> {
 
   // update logic
   pub fn update(&mut self) {
-    self.renderer.update_object(0, 0, &[100., 0.0, 0.0], &[0.0, 0.0, 1.0], 10.0, &[1.0, 1.0, 1.0], true);
+    self.renderer.update_object(0, 0, &[0.0, 0.0, 0.0], &[0.0, 0.0, 1.0], 0.0, &[1.0, 1.0, 1.0], true);
   }
 
   // call render
@@ -66,7 +68,8 @@ impl AppEventLoop<'_> {
       Ok(_) => Ok(()),
       // Reconfigure the surface if lost
       Err(wgpu::SurfaceError::Lost) => {
-        self.renderer.resize(self.renderer.size);
+        self.renderer.resize_canvas(self.renderer.size);
+        self.update();
         Ok(())
       }
       // The system is out of memory, we should probably quit
@@ -79,8 +82,9 @@ impl AppEventLoop<'_> {
     }
   }
 
-  // pass command to renderer
+  // resize event
   pub fn resize(&mut self, physical_size: PhysicalSize<u32>) {
-    self.renderer.resize(physical_size);
+    self.renderer.resize_canvas(physical_size);
+    self.update();
   }
 }
