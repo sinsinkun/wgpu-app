@@ -10,6 +10,7 @@ use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId};
 
 mod wgpu_root;
+mod primitives;
 mod lin_alg;
 mod app;
 use app::AppEventLoop;

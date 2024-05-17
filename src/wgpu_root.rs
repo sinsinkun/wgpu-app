@@ -21,9 +21,9 @@ pub struct RVertex {
 #[derive(Debug)]
 pub struct RObject {
   pub visible: bool,
-  pub v_buffer: wgpu::Buffer,
-  pub v_count: usize,
-  pub pipe_index: usize,
+  v_buffer: wgpu::Buffer,
+  v_count: usize,
+  pipe_index: usize,
 }
 
 #[derive(Debug)]
@@ -494,7 +494,7 @@ impl<'a> Renderer<'a> {
     let model_s = Mat4::scale(scale[0], scale[1], scale[2]);
     let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_r, &model_s));
     // view matrix (TODO: camera)
-    let view = Mat4::translate(0.0, 0.0, -500.0);
+    let view = Mat4::translate(0.0, 0.0, -200.0);
     // projection matrix
     let w2 = (self.config.width / 2) as f32;
     let h2 = (self.config.height / 2) as f32;

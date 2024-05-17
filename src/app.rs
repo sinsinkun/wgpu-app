@@ -4,14 +4,13 @@ use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::keyboard::Key;
 use winit::dpi::PhysicalSize;
 
-use crate::wgpu_root::{RObjectId, RPipelineId, RVertex, Renderer};
+use crate::wgpu_root::{RPipelineId, Renderer};
+use crate::primitives::{Primitives, Shape};
 
 pub struct AppEventLoop<'a> {
   renderer: Renderer<'a>,
-  rotate: [f32; 3],
-  position: [f32; 3],
-  scale: [f32; 3],
   frame: u32, // max value: ~4,295,000,000
+  shapes: Vec<Shape>,
 }
 
 impl AppEventLoop<'_> {
@@ -20,9 +19,7 @@ impl AppEventLoop<'_> {
 
     Self {
       renderer: wgpu,
-      rotate: [0.0, 0.0, 0.0],
-      position: [0.0, 0.0, 0.0],
-      scale: [1.0, 1.0, 1.0],
+      shapes: vec![],
       frame: 0,
     }
   }
@@ -33,18 +30,18 @@ impl AppEventLoop<'_> {
     let shader1 = wgpu::ShaderSource::Wgsl(include_str!("base.wgsl").into());
     let pipe1: RPipelineId = self.renderer.add_pipeline(shader1, 10, None, None);
 
-    let size: f32 = 100.0;
-    let verts = vec![
-      RVertex { position:[-size, size, 0.0], uv: [0.0, 1.0], normal: [0.0,-1.0,1.0] },
-      RVertex { position:[size, size, 0.0], uv: [1.0, 1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position:[size, -size, 0.0], uv: [1.0, 0.0], normal: [-1.0,0.0,1.0] },
-      RVertex { position:[size, -size, 0.0], uv: [0.0, 1.0], normal: [-1.0,0.0,1.0] },
-      RVertex { position:[-size, -size, 0.0], uv: [1.0, 1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position:[-size, size, 0.0], uv: [1.0, 0.0], normal: [0.0,-1.0,1.0] },
-    ];
-    let _obj1: RObjectId = self.renderer.add_object(pipe1, &verts);
-    let _obj2: RObjectId = self.renderer.add_object(pipe1, &verts);
-    let _obj3: RObjectId = self.renderer.add_object(pipe1, &verts);
+    let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
+    let cube_data2 = Primitives::cube(50.0, 50.0, 50.0);
+    let cube_data3 = Primitives::cube(50.0, 50.0, 50.0);
+    let cube1 = Shape::new(&mut self.renderer, pipe1, cube_data1);
+    let mut cube2 = Shape::new(&mut self.renderer, pipe1, cube_data2);
+    cube2.position = [60.0, 60.0, 0.0];
+    let mut cube3 = Shape::new(&mut self.renderer, pipe1, cube_data3);
+    cube3.position = [-60.0, 30.0, 0.0];
+
+    self.shapes.push(cube1);
+    self.shapes.push(cube2);
+    self.shapes.push(cube3);
   }
 
   // handle inputs
@@ -61,27 +58,39 @@ impl AppEventLoop<'_> {
         *request_redraw = true;
         match key.as_ref() {
           Key::Character("w") => {
-            self.position[2] = self.position[2] + 5.0;
+            for obj in &mut self.shapes {
+              obj.rotate_deg[0] += 5.0;
+            }
             true
           }
           Key::Character("s") => {
-            self.position[2] = self.position[2] - 5.0;
+            for obj in &mut self.shapes {
+              obj.rotate_deg[0] -= 5.0;
+            }
             true
           }
           Key::Character("a") => {
-            self.rotate[1] = self.rotate[1] - 5.0;
+            for obj in &mut self.shapes {
+              obj.rotate_deg[1] -= 5.0;
+            }
             true
           }
           Key::Character("d") => {
-            self.rotate[1] = self.rotate[1] + 5.0;
+            for obj in &mut self.shapes {
+              obj.rotate_deg[1] += 5.0;
+            }
             true
           }
           Key::Character("q") => {
-            self.rotate[2] = self.rotate[2] + 5.0;
+            for obj in &mut self.shapes {
+              obj.rotate_deg[2] += 5.0;
+            }
             true
           }
           Key::Character("e") => {
-            self.rotate[2] = self.rotate[2] - 5.0;
+            for obj in &mut self.shapes {
+              obj.rotate_deg[2] -= 5.0;
+            }
             true
           }
           _ => {
@@ -99,12 +108,9 @@ impl AppEventLoop<'_> {
 
   // update logic
   pub fn update(&mut self) {
-    let p1 = self.position;
-    let p2 = [self.position[0] + 110.0, self.position[1] + 110.0, 0.0];
-    let p3 = [self.position[0] - 110.0, self.position[1] - 110.0, 0.0];
-    self.renderer.update_object(0, 0, &p1, &self.rotate, &self.scale, true);
-    self.renderer.update_object(0, 1, &p2, &self.rotate, &self.scale, true);
-    self.renderer.update_object(0, 2, &p3, &self.rotate, &self.scale, true);
+    for obj in &self.shapes {
+      self.renderer.update_object(obj.pipe_id, obj.id, &obj.position, &obj.rotate_deg, &obj.scale, true);
+    }
   }
 
   // call render
