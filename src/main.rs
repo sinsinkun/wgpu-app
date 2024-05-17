@@ -15,8 +15,8 @@ mod app;
 use app::AppEventLoop;
 
 // constants
-const WAIT_TIME: time::Duration = time::Duration::from_millis(20);
-const POLL_SLEEP_TIME: time::Duration = time::Duration::from_millis(100);
+const WAIT_TIME: time::Duration = time::Duration::from_millis(1000);
+const POLL_SLEEP_TIME: time::Duration = time::Duration::from_millis(20);
 
 // definitions for winit window
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,7 +77,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 		event: WindowEvent,
 	) {
 		if let Some(app_base) = &mut self.app_event_loop {
-			if app_base.input(&event) {
+			if app_base.input(&event, &mut self.request_redraw) {
 				match event {
 					WindowEvent::CloseRequested => {
 						self.close_requested = true;
@@ -118,8 +118,8 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 					WindowEvent::RedrawRequested => {
 						let window = self.window.as_ref().unwrap();
 						if let Some(app_base) = &mut self.app_event_loop {
-							app_base.update();
 							window.pre_present_notify();
+							println!("Rendering to screen");
 							match app_base.render() {
 								Ok(_) => (),
 								// pass out-of-memory error out to winit
@@ -141,11 +141,17 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 
 	fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
 		if self.request_redraw && !self.wait_cancelled && !self.close_requested {
+			if let Some(app_base) = &mut self.app_event_loop {
+				app_base.update();
+			}
 			self.window.as_ref().unwrap().request_redraw();
 		}
 
 		match self.mode {
-			Mode::Wait => event_loop.set_control_flow(ControlFlow::Wait),
+			Mode::Wait => {
+				event_loop.set_control_flow(ControlFlow::Wait);
+				self.request_redraw = false;
+			}
 			Mode::WaitUntil => {
 				if !self.wait_cancelled {
 					event_loop.set_control_flow(

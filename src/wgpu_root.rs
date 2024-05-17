@@ -499,8 +499,7 @@ impl<'a> Renderer<'a> {
       pipeline_id,
       id,
       &[0.0, 0.0, 0.0],
-      &[0.0, 0.0, 1.0],
-      0.0,
+      &[0.0, 0.0, 0.0],
       &[1.0, 1.0, 1.0],
       true
     );
@@ -512,8 +511,7 @@ impl<'a> Renderer<'a> {
     pipeline_id: RPipelineId,
     object_id: RObjectId,
     translate: &[f32; 3],
-    rotate_axis: &[f32; 3],
-    rotate_deg: f32,
+    rotate_rpy: &[f32; 3],
     scale: &[f32; 3],
     visible: bool,
     // camera: RCamera,
@@ -524,15 +522,15 @@ impl<'a> Renderer<'a> {
     obj.visible = visible;
     // model matrix
     let model_t = Mat4::translate(translate[0], translate[1], translate[2]);
-    let model_r = Mat4::rotate(rotate_axis, rotate_deg);
+    let model_r = Mat4::rotate_euler_f(rotate_rpy[0], rotate_rpy[1], rotate_rpy[2]);
     let model_s = Mat4::scale(scale[0], scale[1], scale[2]);
     let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_r, &model_s));
     // view matrix (TODO: camera)
-    let view = Mat4::translate(0.0, 0.0, -200.0);
+    let view = Mat4::translate(0.0, 0.0, -500.0);
     // projection matrix
     let w2 = (self.config.width / 2) as f32;
     let h2 = (self.config.height / 2) as f32;
-    let proj = Mat4::ortho(-w2, w2, -h2, h2, 0.0, 1000.0);
+    let proj = Mat4::perspective(60.0, w2/h2, 1.0, 1000.0); //Mat4::ortho(-w2, w2, -h2, h2, 0.0, 1000.0);
     // merge together
     let mut mvp: [f32; 48] = [0.0; 48]; // 16 * 3 = 48
     for i in 0..48 {

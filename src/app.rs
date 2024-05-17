@@ -1,12 +1,14 @@
 use std::sync::Arc;
 use winit::window::Window;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::keyboard::Key;
 use winit::dpi::PhysicalSize;
 
 use crate::wgpu_root::{Renderer, RVertex, RPipelineId};
 
 pub struct AppEventLoop<'a> {
-  renderer: Renderer<'a>
+  renderer: Renderer<'a>,
+  rotate: [f32; 3]
 }
 
 impl AppEventLoop<'_> {
@@ -14,7 +16,8 @@ impl AppEventLoop<'_> {
     let wgpu = pollster::block_on(Renderer::new(window.clone()));
 
     Self {
-      renderer: wgpu
+      renderer: wgpu,
+      rotate: [0.0, 0.0, 0.0]
     }
   }
 
@@ -24,7 +27,7 @@ impl AppEventLoop<'_> {
     let shader1 = wgpu::ShaderSource::Wgsl(include_str!("base.wgsl").into());
     let pipe1: RPipelineId = self.renderer.add_pipeline(shader1, 10, None, None);
 
-    let size: f32 = 300.0;
+    let size: f32 = 200.0;
     let verts = vec![
       RVertex { position:[-size, size, 0.0], uv: [0.0, 1.0], normal: [0.0,-1.0,1.0] },
       RVertex { position:[size, size, 0.0], uv: [1.0, 1.0], normal: [0.0,0.0,1.0] },
@@ -37,7 +40,7 @@ impl AppEventLoop<'_> {
   }
 
   // handle inputs
-  pub fn input(&mut self, event: &WindowEvent) -> bool {
+  pub fn input(&mut self, event: &WindowEvent, request_redraw: &mut bool) -> bool {
     match event {
       WindowEvent::KeyboardInput { 
         event: KeyEvent {
@@ -47,9 +50,38 @@ impl AppEventLoop<'_> {
         },
         ..
       } => {
-        let debug = key.as_ref();
-				println!("Pressed key: {debug:?}");
-        true
+        *request_redraw = true;
+        match key.as_ref() {
+          Key::Character("w") => {
+            self.rotate[0] = self.rotate[0] + 5.0;
+            true
+          }
+          Key::Character("s") => {
+            self.rotate[0] = self.rotate[0] - 5.0;
+            true
+          }
+          Key::Character("a") => {
+            self.rotate[1] = self.rotate[1] + 5.0;
+            true
+          }
+          Key::Character("d") => {
+            self.rotate[1] = self.rotate[1] - 5.0;
+            true
+          }
+          Key::Character("q") => {
+            self.rotate[2] = self.rotate[2] - 5.0;
+            true
+          }
+          Key::Character("e") => {
+            self.rotate[2] = self.rotate[2] + 5.0;
+            true
+          }
+          _ => {
+            let debug = key.as_ref();
+            println!("Unhandled key: {debug:?}");
+            true
+          }
+        }
       }
       #[allow(unused_variables)]
       WindowEvent::CursorMoved { device_id, position } => true,
@@ -59,7 +91,7 @@ impl AppEventLoop<'_> {
 
   // update logic
   pub fn update(&mut self) {
-    self.renderer.update_object(0, 0, &[0.0, 0.0, 0.0], &[0.0, 0.0, 1.0], 0.0, &[1.0, 1.0, 1.0], true);
+    self.renderer.update_object(0, 0, &[0.0, 0.0, 0.0], &self.rotate, &[1.0, 1.0, 1.0], true);
   }
 
   // call render

@@ -79,6 +79,63 @@ impl Mat4 {
       0.0, 0.0, 0.0, 1.0
     ]
   }
+  pub fn rotate_euler_f(roll: f32, pitch: f32, yaw: f32) -> [f32; 16] {
+    let a = roll * PI / 180.0;
+    let b = pitch * PI / 180.0;
+    let c = yaw * PI / 180.0;
+    let mat_a = [
+      1.0, 0.0, 0.0, 0.0,
+      0.0, f32::cos(a), -f32::sin(a), 0.0,
+      0.0, f32::sin(a), f32::cos(a), 0.0,
+      0.0, 0.0, 0.0, 1.0
+    ];
+    let mat_b = [
+      f32::cos(b), 0.0, f32::sin(b), 0.0,
+      0.0, 1.0, 0.0, 0.0,
+      -f32::sin(b), 0.0, f32::cos(b), 0.0,
+      0.0, 0.0, 0.0, 1.0
+    ];
+    let mat_c = [
+      f32::cos(c), -f32::sin(c), 0.0, 0.0,
+      f32::sin(c), f32::cos(c), 0.0, 0.0,
+      0.0, 0.0, 1.0, 0.0,
+      0.0, 0.0, 0.0, 1.0
+    ];
+    let mat_d = Mat4::multiply(&mat_a, &mat_b);
+    Mat4::multiply(&mat_c, &mat_d)
+  }
+  pub fn rotate_euler(roll: f32, pitch: f32, yaw: f32) -> [f32; 16] {
+    let a = roll * PI / 180.0;
+    let cosa = f32::cos(a);
+    let sina = f32::sin(a);
+    let b = pitch * PI / 180.0;
+    let cosb = f32::cos(b);
+    let sinb = f32::sin(b);
+    let c = yaw * PI / 180.0;
+    let cosc = f32::cos(c);
+    let sinc = f32::sin(c);
+    [
+      cosb * cosc,
+      sina * sinb * sinc - cosa * sinc,
+      cosa * sinb * cosc + sina * sinc,
+      0.0,
+
+      cosb * sinc,
+      sina * sinb * sinc + cosa * cosc,
+      cosa * sinb * sinc - sina * cosc,
+      0.0,
+
+      -sinb,
+      sina * cosb,
+      cosa * cosb,
+      0.0,
+
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  }
   pub fn scale(x: f32, y: f32, z: f32) -> [f32; 16] {
     [
       x, 0.0, 0.0, 0.0,
@@ -215,56 +272,26 @@ mod lin_alg_tests {
   }
   #[test]
   fn mat4_rotate1() {
-    let o = Mat4::rotate(&[0.0, 0.0, 1.0], 30.0);
-    assert_eq!(o, [
-      0.8660254, 0.5, 0.0, 0.0,
-      -0.5, 0.8660254, 0.0, 0.0,
-      0.0, 0.0, 1.0, 0.0,
-      0.0, 0.0, 0.0, 1.0
-    ]);
+    let a = Mat4::rotate_euler(0.0, 0.0, 30.0);
+    let b = Mat4::rotate_euler_f(0.0, 0.0, 30.0);
+    assert_eq!(a, b);
   }
   #[test]
   fn mat4_rotate2() {
-    let o = Mat4::rotate(&[0.0, 1.0, 0.0], 45.0);
-    assert_eq!(o, [
-      0.70710677, 0.0, -0.70710677, 0.0,
-      0.0, 1.0, 0.0, 0.0,
-      0.70710677, 0.0, 0.70710677, 0.0,
-      0.0, 0.0, 0.0, 1.0
-    ]);
+    let a = Mat4::rotate_euler(0.0, 45.0, 0.0);
+    let b = Mat4::rotate_euler_f(0.0, 45.0, 0.0);
+    assert_eq!(a, b);
   }
   #[test]
   fn mat4_rotate3() {
-    let o = Mat4::rotate(&[1.0, 0.0, 0.0], 60.0);
-    assert_eq!(o, [
-      1.0, 0.0, 0.0, 0.0,
-      0.0, 0.5, 0.86602539, 0.0,
-      0.0, -0.86602539, 0.5, 0.0,
-      0.0, 0.0, 0.0, 1.0
-    ]);
+    let a = Mat4::rotate_euler(60.0, 0.0, 0.0);
+    let b = Mat4::rotate_euler_f(60.0, 0.0, 0.0);
+    assert_eq!(a, b);
   }
   #[test]
   fn mat4_rotate4() {
-    let o = Mat4::rotate(&[1.0, 0.0, 1.0], 90.0);
-    assert_eq!(o, [
-      0.5, 0.70710677, 0.5, 0.0,
-      -0.70710677, 0.0, 0.70710677, 0.0,
-      0.5, -0.70710677, 0.5, 0.0,
-      0.0, 0.0, 0.0, 1.0
-    ]);
-  }
-  #[test]
-  fn mat4_rotate5() {
-    let o = Mat4::rotate(&[0.0, 2.0, 1.0], 140.0);
-    assert_eq!(o, [
-      -0.76604444, 0.28746337, -0.57492673, 0.0,
-      -0.287463367, 0.6467911, 0.7064178, 0.0,
-      0.57492673, 0.7064178, -0.41283557, 0.0,
-      0.0, 0.0, 0.0, 1.0
-    ]);
-  }
-  #[test] #[ignore]
-  fn mat4_multiply() {
-    todo!();
+    let a = Mat4::rotate_euler(120.0, 0.0, 30.0);
+    let b = Mat4::rotate_euler_f(120.0, 0.0, 30.0);
+    assert_eq!(a, b);
   }
 }
