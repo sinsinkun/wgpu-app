@@ -10,9 +10,9 @@ use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId};
 
 mod wgpu_root;
-use wgpu_root::{RPipelineId, RVertex};
-
 mod lin_alg;
+mod app;
+use app::AppEventLoop;
 
 // constants
 const WAIT_TIME: time::Duration = time::Duration::from_millis(20);
@@ -33,7 +33,7 @@ struct ControlFlowApp<'a> {
 	wait_cancelled: bool,
 	close_requested: bool,
 	window: Option<Arc<Window>>,
-	wgpu: Option<wgpu_root::Renderer<'a>>,
+	app_event_loop: Option<AppEventLoop<'a>>,
 }
 
 impl Default for ControlFlowApp<'_> {
@@ -44,7 +44,7 @@ impl Default for ControlFlowApp<'_> {
 			wait_cancelled: false,
 			close_requested: false,
 			window: None,
-			wgpu: None
+			app_event_loop: None,
 		}
 	}
 }
@@ -64,23 +64,10 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 		let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 		self.window = Some(window.clone());
 
-		let state = pollster::block_on(wgpu_root::Renderer::new(window.clone()));
-		self.wgpu = Some(state);
-		
-		// init stuff
-		if let Some(wgpu) = &mut self.wgpu {
-			let shader1 = wgpu::ShaderSource::Wgsl(include_str!("base.wgsl").into());
-			let pipe1: RPipelineId = wgpu.add_pipeline(shader1, 10, None, None);
-
-			let verts = vec![
-				RVertex { position:[0.0, 0.5, 0.0], uv: [0.0, 1.0], normal: [0.0,0.0,1.0] },
-				RVertex { position:[0.5, 0.5, 0.0], uv: [1.0, 1.0], normal: [0.0,0.0,1.0] },
-				RVertex { position:[0.5, 0.0, 0.0], uv: [1.0, 0.0], normal: [0.0,0.0,1.0] },
-			];
-
-			// declare vertex
-			wgpu.add_object(pipe1, &verts);
-		}
+		// divert init actions to app container
+		let mut app_base = AppEventLoop::new(window.clone());
+		app_base.init();
+		self.app_event_loop = Some(app_base);
 	}
 
 	fn window_event(
@@ -89,8 +76,8 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 		_window_id: WindowId,
 		event: WindowEvent,
 	) {
-		if let Some(wgpu) = &mut self.wgpu {
-			if wgpu.input(&event) {
+		if let Some(app_base) = &mut self.app_event_loop {
+			if app_base.input(&event) {
 				match event {
 					WindowEvent::CloseRequested => {
 						self.close_requested = true;
@@ -130,23 +117,20 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 					},
 					WindowEvent::RedrawRequested => {
 						let window = self.window.as_ref().unwrap();
-						if let Some(wgpu) = &mut self.wgpu {
-							wgpu.update();
+						if let Some(app_base) = &mut self.app_event_loop {
+							app_base.update();
 							window.pre_present_notify();
-							match wgpu.render(&[0], None) {
+							match app_base.render() {
 								Ok(_) => (),
-								// Reconfigure the surface if lost
-								Err(wgpu::SurfaceError::Lost) => wgpu.resize(wgpu.size),
-								// The system is out of memory, we should probably quit
+								// pass out-of-memory error out to winit
 								Err(wgpu::SurfaceError::OutOfMemory) => self.close_requested = true,
-								// All other errors (Outdated, Timeout) should be resolved by the next frame
 								Err(e) => eprintln!("{:?}", e),
 							}
 						}
 					}
 					WindowEvent::Resized(physical_size) => {
-						if let Some(wgpu) = &mut self.wgpu {
-							wgpu.resize(physical_size);
+						if let Some(app_base) = &mut self.app_event_loop {
+							app_base.resize(physical_size);
 						}
 					}
 					_ => (),

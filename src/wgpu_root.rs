@@ -6,6 +6,7 @@ use std::num::NonZeroU64;
 use winit::window::Window;
 use winit::event::WindowEvent;
 use winit::event::{ElementState, KeyEvent};
+use winit::keyboard::Key;
 
 use wgpu::*;
 use wgpu::util::{DeviceExt,BufferInitDescriptor};
@@ -61,6 +62,7 @@ pub struct Renderer<'a> {
   msaa: wgpu::Texture,
   zbuffer: wgpu::Texture,
   limits: wgpu::Limits,
+  pub clear_color: wgpu::Color,
   pub size: winit::dpi::PhysicalSize<u32>,
   pub pipelines: Vec<RPipeline>,
   pub textures: Vec<wgpu::Texture>
@@ -161,6 +163,7 @@ impl<'a> Renderer<'a> {
       msaa,
       zbuffer,
       limits: Limits::default(),
+      clear_color: Color { r: 0.01, g: 0.01, b: 0.02, a: 1.0 }
     };
   }
 
@@ -219,16 +222,21 @@ impl<'a> Renderer<'a> {
       } => {
         let debug = key.as_ref();
 				println!("Pressed key: {debug:?}");
+        match key.as_ref() {
+          Key::Character("r") => {
+            self.clear_color = Color { r:0.4, g: 0.2, b: 0.1, a: 1.0};
+          }
+          Key::Character("b") => {
+            self.clear_color = Color { r:0.1, g: 0.2, b: 0.4, a: 1.0};
+          }
+          _ => ()
+        }
         true
       }
       #[allow(unused_variables)]
       WindowEvent::CursorMoved { device_id, position } => true,
       _ => true,
     }
-  }
-
-  pub fn update(&mut self) {
-    // todo
   }
 
   pub fn _add_texture(&mut self, width: u32, height: u32, texture_data: Option<&[u8]>) -> RTextureId {
@@ -359,13 +367,13 @@ impl<'a> Renderer<'a> {
               dst_factor: BlendFactor::OneMinusSrcAlpha
             }
           }),
-          write_mask: ColorWrites::default()
+          write_mask: ColorWrites::ALL
         })],
         compilation_options: PipelineCompilationOptions::default(),
       }),
       multisample: MultisampleState {
         count: 4,
-        mask: 512,
+        mask: !0,
         alpha_to_coverage_enabled: true,
       },
       depth_stencil: Some(DepthStencilState {
@@ -377,7 +385,7 @@ impl<'a> Renderer<'a> {
       }),
       primitive: PrimitiveState {
         cull_mode,
-        ..Default::default()
+        ..PrimitiveState::default()
       },
       multiview: None,
     });
@@ -525,7 +533,7 @@ impl<'a> Renderer<'a> {
     let model_r = Mat4::rotate(rotate_axis, rotate_deg);
     let model_s = Mat4::scale(scale[0], scale[1], scale[2]);
     let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_r, &model_s));
-    // view matrix
+    // view matrix (TODO: camera)
     let view = Mat4::translate(0.0, 0.0, -200.0);
     // projection matrix
     let w2 = (self.config.width / 2) as f32;
@@ -568,7 +576,7 @@ impl<'a> Renderer<'a> {
           view: &view,
           resolve_target: Some(&target),
           ops: Operations {
-            load: LoadOp::Clear(Color { r: 0.002, g: 0.005, b: 0.02, a: 1.0 }),
+            load: LoadOp::Clear(self.clear_color),
             store: StoreOp::Store,
           },
         })],
