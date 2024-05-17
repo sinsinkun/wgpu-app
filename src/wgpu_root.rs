@@ -2,36 +2,40 @@
 
 use std::sync::Arc;
 use std::num::NonZeroU64;
-use std::ops::Range;
 
 use winit::window::Window;
 use winit::event::WindowEvent;
 use winit::event::{ElementState, KeyEvent};
 
 use wgpu::*;
+use wgpu::util::{DeviceExt,BufferInitDescriptor};
+use bytemuck::{Pod, Zeroable};
 use crate::lin_alg::Mat4;
 
 // -- HELPER STRUCTS --
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct RVertex {
   pub position: [f32; 3],
   pub uv: [f32; 2],
   pub normal: [f32; 3],
 }
 
+#[derive(Debug)]
 pub struct RObject {
   pub visible: bool,
-  vertex_buffer: wgpu::Buffer,
-  uv_buffer: wgpu::Buffer,
-  normal_buffer: wgpu::Buffer,
-  pub vertex_count: usize,
+  pub v_buffer: wgpu::Buffer,
+  pub v_count: usize,
   pub pipe_index: usize,
 }
 
+#[derive(Debug)]
 pub struct RBindGroup {
   base: wgpu::BindGroup,
   entries: Vec<wgpu::Buffer>,
 }
 
+#[derive(Debug)]
 pub struct RPipeline {
   pipe: wgpu::RenderPipeline,
   objects: Vec<RObject>,
@@ -47,6 +51,7 @@ pub type RPipelineId = usize;
 pub type RTextureId = usize;
 
 // -- PRIMARY RENDERER INTERFACE --
+#[derive(Debug)]
 pub struct Renderer<'a> {
   surface: wgpu::Surface<'a>,
   surface_format: wgpu::TextureFormat,
@@ -165,8 +170,40 @@ impl<'a> Renderer<'a> {
       self.config.width = new_size.width;
       self.config.height = new_size.height;
       self.surface.configure(&self.device, &self.config);
-      // todo: remake msaa texture
-      // todo: remake zbuffer texture
+
+      let texture_size = wgpu::Extent3d {
+        width: new_size.width,
+        height: new_size.height,
+        depth_or_array_layers: 1,
+      };
+
+      // remake msaa texture
+      let msaa = self.device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("msaa-texture"),
+        size: texture_size,
+        sample_count: 4,
+        mip_level_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: self.surface_format,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[]
+      });
+      self.msaa.destroy();
+      self.msaa = msaa;
+
+      // remake zbuffer texture
+      let zbuffer = self.device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("zbuffer-texture"),
+        size: texture_size,
+        sample_count: 4,
+        mip_level_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth24Plus,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[]
+      });
+      self.zbuffer.destroy();
+      self.zbuffer = zbuffer;
     }
   }
 
@@ -194,7 +231,7 @@ impl<'a> Renderer<'a> {
     // todo
   }
 
-  pub fn add_texture(&mut self, width: u32, height: u32, texture_data: Option<&[u8]>) -> RTextureId {
+  pub fn _add_texture(&mut self, width: u32, height: u32, texture_data: Option<&[u8]>) -> RTextureId {
     let id = self.textures.len();
     let texture_size = Extent3d { width, height, depth_or_array_layers: 1 };
     // create texture
@@ -231,11 +268,11 @@ impl<'a> Renderer<'a> {
     id
   }
 
-  pub fn update_texture() {
+  pub fn _update_texture() {
     todo!()
   }
 
-  pub fn update_texture_size() {
+  pub fn _update_texture_size() {
     todo!()
   }
 
@@ -298,41 +335,32 @@ impl<'a> Renderer<'a> {
       vertex: VertexState {
         module: &shader_mod,
         entry_point: "vertexMain",
-        buffers: &[
-          VertexBufferLayout {
-            array_stride: 12, // 4 bytes * 3
-            attributes: &[VertexAttribute {
-              format: VertexFormat::Float32x3,
-              offset:0,
-              shader_location: 0
-            }],
-            step_mode: VertexStepMode::Vertex
-          },
-          VertexBufferLayout {
-            array_stride: 8, // 4 bytes * 2
-            attributes: &[VertexAttribute {
-              format: VertexFormat::Float32x2,
-              offset:0,
-              shader_location: 1
-            }],
-            step_mode: VertexStepMode::Vertex
-          },
-          VertexBufferLayout {
-            array_stride: 12, // 4 bytes * 3
-            attributes: &[VertexAttribute {
-              format: VertexFormat::Float32x3,
-              offset:0,
-              shader_location: 2
-            }],
-            step_mode: VertexStepMode::Vertex
-          },
-        ],
+        buffers: &[VertexBufferLayout {
+          array_stride: std::mem::size_of::<RVertex>() as BufferAddress,
+          step_mode: VertexStepMode::Vertex,
+          attributes: &vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3],
+        }],
         compilation_options: PipelineCompilationOptions::default(),
       },
       fragment: Some(FragmentState{
         module: &shader_mod,
         entry_point: "fragmentMain",
-        targets: &[],
+        targets: &[Some(ColorTargetState{
+          format: self.surface_format,
+          blend: Some(BlendState { 
+            color: BlendComponent {
+              operation: BlendOperation::Add,
+              src_factor: BlendFactor::SrcAlpha,
+              dst_factor: BlendFactor::OneMinusSrcAlpha
+            },
+            alpha: BlendComponent {
+              operation: BlendOperation::Add,
+              src_factor: BlendFactor::SrcAlpha,
+              dst_factor: BlendFactor::OneMinusSrcAlpha
+            }
+          }),
+          write_mask: ColorWrites::default()
+        })],
         compilation_options: PipelineCompilationOptions::default(),
       }),
       multisample: MultisampleState {
@@ -444,50 +472,24 @@ impl<'a> Renderer<'a> {
 
     // create vertex buffer
     let vlen = v_data.len();
-    let mut vertices: Vec<f32> = vec![0.0; vlen * 3];
-    let mut uvs: Vec<f32> = vec![0.0; vlen * 2];
-    let mut normals: Vec<f32> = vec![0.0; vlen * 3];
-    for i in 0..vlen {
-      vertices[i*3] = v_data[i].position[0];
-      vertices[i*3+1] = v_data[i].position[1];
-      vertices[i*3+2] = v_data[i].position[2];
-
-      uvs[i*2] = v_data[i].uv[0];
-      uvs[i*2+1] = v_data[i].uv[1];
-
-      normals[i*3] = v_data[i].normal[0];
-      normals[i*3+1] = v_data[i].normal[1];
-      normals[i*3+2] = v_data[i].normal[2];
-    }
-    let vert_buffer = self.device.create_buffer(&BufferDescriptor { 
-      label: Some("vertex-buffer"), 
-      size: (vlen * 3 * 4) as u64, 
-      usage: BufferUsages::VERTEX | BufferUsages::COPY_DST, 
-      mapped_at_creation: false
+    // let v_buffer = self.device.create_buffer(&BufferDescriptor {
+    //   label: Some("vertex-buffer"),
+    //   size: (std::mem::size_of::<RVertex>() * vlen) as u64,
+    //   usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+    //   mapped_at_creation: false
+    // });
+    // self.queue.write_buffer(&v_buffer, 0, bytemuck::cast_slice(&v_data.as_slice()));
+    let v_buffer = self.device.create_buffer_init(&BufferInitDescriptor {
+      label: Some("vertex-buffer"),
+      contents: bytemuck::cast_slice(&v_data.as_slice()),
+      usage: BufferUsages::VERTEX,
     });
-    self.queue.write_buffer(&vert_buffer, 0, bytemuck::cast_slice(&vertices));
-    let uv_buffer = self.device.create_buffer(&BufferDescriptor { 
-      label: Some("uv-buffer"), 
-      size: (vlen * 2 * 4) as u64, 
-      usage: BufferUsages::VERTEX | BufferUsages::COPY_DST, 
-      mapped_at_creation: false
-    });
-    self.queue.write_buffer(&uv_buffer, 0, bytemuck::cast_slice(&uvs));
-    let normal_buffer = self.device.create_buffer(&BufferDescriptor { 
-      label: Some("normal-buffer"), 
-      size: (vlen * 3 * 4) as u64, 
-      usage: BufferUsages::VERTEX | BufferUsages::COPY_DST, 
-      mapped_at_creation: false
-    });
-    self.queue.write_buffer(&normal_buffer, 0, bytemuck::cast_slice(&normals));
 
     // save to cache
     let obj = RObject {
       visible: true,
-      vertex_buffer: vert_buffer,
-      uv_buffer,
-      normal_buffer,
-      vertex_count: vlen,
+      v_buffer,
+      v_count: vlen,
       pipe_index: id
     };
     pipe.objects.push(obj);
@@ -524,7 +526,7 @@ impl<'a> Renderer<'a> {
     let model_s = Mat4::scale(scale[0], scale[1], scale[2]);
     let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_r, &model_s));
     // view matrix
-    let view = Mat4::identity();
+    let view = Mat4::translate(0.0, 0.0, -200.0);
     // projection matrix
     let w2 = (self.config.width / 2) as f32;
     let h2 = (self.config.height / 2) as f32;
@@ -542,7 +544,6 @@ impl<'a> Renderer<'a> {
       (stride * obj.pipe_index as u32) as u64, 
       bytemuck::cast_slice(&mvp)
     );
-
   }
 
   pub fn render(&mut self, pipeline_ids: &[usize], target_id: Option<usize>) -> Result<(), wgpu::SurfaceError> {
@@ -555,22 +556,30 @@ impl<'a> Renderer<'a> {
       },
       None => output.texture.create_view(&TextureViewDescriptor::default())
     };
+    let zbuffer_view = self.zbuffer.create_view(&TextureViewDescriptor::default());
     let mut encoder = self.device.create_command_encoder(
       &wgpu::CommandEncoderDescriptor { label: Some("render-encoder") }
     );
     {
       // new context so ownership of encoder is released after pass finishes
-      let mut _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
         label: Some("render-pass"),
-        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+        color_attachments: &[Some(RenderPassColorAttachment {
           view: &view,
           resolve_target: Some(&target),
-          ops: wgpu::Operations {
-            load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.01, g: 0.02, b: 0.05, a: 1.0 }),
-            store: wgpu::StoreOp::Store,
+          ops: Operations {
+            load: LoadOp::Clear(Color { r: 0.002, g: 0.005, b: 0.02, a: 1.0 }),
+            store: StoreOp::Store,
           },
         })],
-        depth_stencil_attachment: None,
+        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+          view: &zbuffer_view,
+          depth_ops: Some(Operations {
+            load: LoadOp::Clear(1.0),
+            store: StoreOp::Store
+          }),
+          stencil_ops: None,
+        }),
         occlusion_query_set: None,
         timestamp_writes: None,
       });
@@ -580,18 +589,17 @@ impl<'a> Renderer<'a> {
         for obj in &pipeline.objects {
           if !obj.visible { continue; }
           let stride = self.limits.min_uniform_buffer_offset_alignment * obj.pipe_index as u32;
-          _pass.set_pipeline(&pipeline.pipe);
-          _pass.set_vertex_buffer(0, obj.vertex_buffer.slice(0..));
-          _pass.set_vertex_buffer(1, obj.uv_buffer.slice(0..));
-          _pass.set_vertex_buffer(2, obj.normal_buffer.slice(0..));
-          _pass.set_bind_group(0, &pipeline.bind_group0.base, &[stride]);
-          _pass.draw(Range{ start:0, end:obj.vertex_count as u32 }, Range{ start:0, end:1 });
+          pass.set_pipeline(&pipeline.pipe);
+          pass.set_vertex_buffer(0, obj.v_buffer.slice(..));
+          pass.set_bind_group(0, &pipeline.bind_group0.base, &[stride]);
+          pass.draw(0..(obj.v_count as u32), 0..1);
         }
       }
     }
 
     self.queue.submit(std::iter::once(encoder.finish()));
     output.present();
+    println!("Finished render pass");
 
     Ok(())
   }

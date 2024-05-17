@@ -73,9 +73,9 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 			let pipe1: RPipelineId = wgpu.add_pipeline(shader1, 10, None, None);
 
 			let verts = vec![
-				RVertex { position:[0.0, 50.0, 0.0], uv: [1.0, 0.0], normal: [0.0,0.0,1.0] },
-				RVertex { position:[50.0, 50.0, 0.0], uv: [1.0, 0.0], normal: [0.0,0.0,1.0] },
-				RVertex { position:[50.0, 0.0, 0.0], uv: [1.0, 0.0], normal: [0.0,0.0,1.0] },
+				RVertex { position:[0.0, 0.5, 0.0], uv: [0.0, 1.0], normal: [0.0,0.0,1.0] },
+				RVertex { position:[0.5, 0.5, 0.0], uv: [1.0, 1.0], normal: [0.0,0.0,1.0] },
+				RVertex { position:[0.5, 0.0, 0.0], uv: [1.0, 0.0], normal: [0.0,0.0,1.0] },
 			];
 
 			// declare vertex

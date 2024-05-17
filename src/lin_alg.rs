@@ -2,7 +2,7 @@
 
 const PI: f32 = 3.14159265;
 
-pub struct Mat4 {}
+pub struct Mat4;
 impl Mat4 {
   pub fn size_in_bytes() -> u32 { 4 * 4 * 4 * 3 }
   pub fn identity() -> [f32; 16] {
@@ -150,7 +150,7 @@ impl Mat4 {
   }
 }
 
-pub struct Vec {}
+pub struct Vec;
 impl Vec {
   pub fn add_vec3(v1: &[f32; 3], v2: &[f32; 3]) -> [f32; 3] {
     [

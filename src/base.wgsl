@@ -24,7 +24,7 @@ struct VertOut {
 fn vertexMain(input: VertIn) -> VertOut {
   var out: VertOut;
   let mvpMat = mvp.proj * mvp.view * mvp.model;
-  out.pos = mvpMat * vec4f(input.pos, 1);
+  out.pos = vec4f(input.pos, 1);
   out.uv = input.uv;
   out.normal = input.normal;
   return out;
@@ -37,5 +37,5 @@ fn fragmentMain(input: VertOut) -> @location(0) vec4f {
   if (tx.a < 0.0001) {
     tx = vec4f(n, 0.8);
   }
-  return tx;
+  return vec4f(1.0);
 }
