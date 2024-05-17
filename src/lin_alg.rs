@@ -48,62 +48,32 @@ impl Mat4 {
       x, y, z, 1.0
     ]
   }
-  // !-- NOT WORKING
-  pub fn rotate(axis: &[f32; 3], deg: f32) -> [f32; 16] {
-    // normalize axis
-    let n = f32::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
-    let x = axis[0] / n;
-    let y = axis[1] / n;
-    let z = axis[2] / n;
-    // helpers
-    let xx = x * x;
-    let yy = y * y;
-    let zz = z * z;
-    let c = f32::cos(deg * PI / 180.0);
-    let s = f32::sin(deg * PI / 180.0);
-    let o = 1.0 - c;
-    // builders
-    let a = xx + (1.0 - xx) * c;
-    let b = x * y * o + z * s;
-    let c = x * z * o - y * s;
-    let d = x * y * o - z * s;
-    let e = yy + (1.0 - yy) * c;
-    let f = y * z * o + x * s;
-    let g = x * z * o + y * s;
-    let h = y * z * o - x * s;
-    let i = zz + (1.0 - zz) * c;
-    [
-      a, b, c, 0.0,
-      d, e, f, 0.0,
-      g, h, i, 0.0,
-      0.0, 0.0, 0.0, 1.0
-    ]
-  }
   pub fn rotate_euler_f(roll: f32, pitch: f32, yaw: f32) -> [f32; 16] {
     let a = roll * PI / 180.0;
     let b = pitch * PI / 180.0;
     let c = yaw * PI / 180.0;
     let mat_a = [
-      1.0, 0.0, 0.0, 0.0,
-      0.0, f32::cos(a), -f32::sin(a), 0.0,
-      0.0, f32::sin(a), f32::cos(a), 0.0,
-      0.0, 0.0, 0.0, 1.0
+      1.0, 0.0,          0.0,         0.0,
+      0.0, f32::cos(a),  f32::sin(a), 0.0,
+      0.0, -f32::sin(a), f32::cos(a), 0.0,
+      0.0, 0.0,          0.0,         1.0
     ];
     let mat_b = [
-      f32::cos(b), 0.0, f32::sin(b), 0.0,
-      0.0, 1.0, 0.0, 0.0,
-      -f32::sin(b), 0.0, f32::cos(b), 0.0,
-      0.0, 0.0, 0.0, 1.0
+      f32::cos(b), 0.0, -f32::sin(b), 0.0,
+      0.0,         1.0, 0.0,          0.0,
+      f32::sin(b), 0.0, f32::cos(b),  0.0,
+      0.0,         0.0, 0.0,          1.0
     ];
     let mat_c = [
-      f32::cos(c), -f32::sin(c), 0.0, 0.0,
-      f32::sin(c), f32::cos(c), 0.0, 0.0,
-      0.0, 0.0, 1.0, 0.0,
-      0.0, 0.0, 0.0, 1.0
+      f32::cos(c),  f32::sin(c), 0.0, 0.0,
+      -f32::sin(c), f32::cos(c), 0.0, 0.0,
+      0.0,          0.0,         1.0, 0.0,
+      0.0,          0.0,         0.0, 1.0
     ];
-    let mat_d = Mat4::multiply(&mat_a, &mat_b);
+    let mat_d = Mat4::multiply(&mat_b, &mat_a);
     Mat4::multiply(&mat_c, &mat_d)
   }
+  // incorrect?
   pub fn rotate_euler(roll: f32, pitch: f32, yaw: f32) -> [f32; 16] {
     let a = roll * PI / 180.0;
     let cosa = f32::cos(a);
@@ -116,7 +86,7 @@ impl Mat4 {
     let sinc = f32::sin(c);
     [
       cosb * cosc,
-      sina * sinb * sinc - cosa * sinc,
+      sina * sinb * cosc - cosa * sinc,
       cosa * sinb * cosc + sina * sinc,
       0.0,
 
