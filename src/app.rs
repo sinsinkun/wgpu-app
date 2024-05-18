@@ -42,8 +42,10 @@ impl AppEventLoop<'_> {
     let cube1 = Shape::new(&mut self.renderer, pipe1, cube_data1);
     let mut cube2 = Shape::new(&mut self.renderer, pipe1, cube_data2);
     cube2.position = [60.0, 60.0, 0.0];
+    cube2.rotate_axis = [1.0, 0.5, 0.0];
     let mut cube3 = Shape::new(&mut self.renderer, pipe1, cube_data3);
     cube3.position = [-60.0, -30.0, 0.0];
+    cube3.rotate_axis = [0.0, 0.5, 1.0];
 
     self.shapes.push(cube1);
     self.shapes.push(cube2);
@@ -98,7 +100,7 @@ impl AppEventLoop<'_> {
             if state == &ElementState::Pressed {
               println!("reset");
               self.camera.position = [0.0, 0.0, 200.0];
-              self.camera.rotate_deg = [0.0, 0.0, 0.0];
+              self.camera.rotate_deg = 0.0;
             }
           }
           // catch all
@@ -106,24 +108,8 @@ impl AppEventLoop<'_> {
         };
         true
       }
-      WindowEvent::CursorMoved { position, .. } => {
-        // incorrect logic
-        let dir = if f64::abs(position.x) > f64::abs(position.y) {
-          if position.x > 0.0 { 1 }
-          else { 2 }
-        } else {
-          if position.y > 0.0 { 3 }
-          else { 4 }
-        };
-        
-        match dir {
-          1 => { self.camera.rotate_deg[1] += 1.0; }
-          2 => { self.camera.rotate_deg[1] -= 1.0; }
-          3 => { self.camera.rotate_deg[0] += 1.0; }
-          4 => { self.camera.rotate_deg[0] -= 1.0; }
-          _ => ()
-        };
-        
+      WindowEvent::CursorMoved { position:_, .. } => {
+        // to-do: mouse based camera rotation
         true
       },
       _ => true,
@@ -132,12 +118,14 @@ impl AppEventLoop<'_> {
 
   // update logic
   pub fn update(&mut self) {
-    for obj in &self.shapes {
+    for obj in &mut self.shapes {
+      obj.rotate_deg = self.frame as f32;
       self.renderer.update_object(
         obj.pipe_id,
         obj.id,
         &obj.position,
-        &obj.rotate_deg,
+        &obj.rotate_axis,
+        obj.rotate_deg,
         &obj.scale,
         true,
         Some(&self.camera)

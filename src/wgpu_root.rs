@@ -7,7 +7,7 @@ use winit::window::Window;
 
 use wgpu::*;
 use bytemuck::{Pod, Zeroable};
-use crate::lin_alg::Mat4;
+use crate::lin_alg::{Mat4, Vec3, PI};
 
 // -- HELPER STRUCTS --
 #[repr(C)]
@@ -59,7 +59,8 @@ pub enum CameraType {
 pub struct RCamera {
   pub cam_type: CameraType,
   pub position: [f32; 3],
-  pub rotate_deg: [f32; 3],
+  pub rotate_axis: [f32; 3],
+  pub rotate_deg: f32,
   pub fov_y: f32,
   pub near: f32,
   pub far: f32,
@@ -69,7 +70,8 @@ impl RCamera {
     Self {
       cam_type: CameraType::Orthographic,
       position: [0.0, 0.0, 0.0],
-      rotate_deg: [0.0, 0.0, 0.0],
+      rotate_axis: [0.0, 0.0, 1.0],
+      rotate_deg: 0.0,
       fov_y: 0.0,
       near,
       far,
@@ -79,11 +81,18 @@ impl RCamera {
     Self {
       cam_type: CameraType::Perspective,
       position: [0.0, 0.0, 0.0],
-      rotate_deg: [0.0, 0.0, 0.0],
+      rotate_axis: [0.0, 0.0, 1.0],
+      rotate_deg: 0.0,
       fov_y,
       near,
       far,
     }
+  }
+  pub fn look_at(&mut self, point: &[f32; 3]) {
+    // convert look_at point to quaternion
+    let (axis, rad) = Vec3::look_at(&self.position, point);
+    self.rotate_axis = axis;
+    self.rotate_deg = rad * 180.0 / PI;
   }
 }
 
@@ -513,7 +522,8 @@ impl<'a> Renderer<'a> {
       pipeline_id,
       id,
       &[0.0, 0.0, 0.0],
-      &[0.0, 0.0, 0.0],
+      &[0.0, 0.0, 1.0],
+      0.0,
       &[1.0, 1.0, 1.0],
       true,
       None,
@@ -526,7 +536,8 @@ impl<'a> Renderer<'a> {
     pipeline_id: RPipelineId,
     object_id: RObjectId,
     translate: &[f32; 3],
-    rotate_deg: &[f32; 3],
+    rotate_axis: &[f32; 3],
+    rotate_deg: f32,
     scale: &[f32; 3],
     visible: bool,
     camera: Option<&RCamera>,
@@ -541,12 +552,12 @@ impl<'a> Renderer<'a> {
     obj.visible = visible;
     // model matrix
     let model_t = Mat4::translate(translate[0], translate[1], translate[2]);
-    let model_r = Mat4::rotate_euler(rotate_deg[0], rotate_deg[1], rotate_deg[2]);
+    let model_r = Mat4::rotate(rotate_axis, rotate_deg);
     let model_s = Mat4::scale(scale[0], scale[1], scale[2]);
     let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_r, &model_s));
     // view matrix
     let view_t = Mat4::translate(-cam.position[0], -cam.position[1], -cam.position[2]);
-    let view_r = Mat4::rotate_euler(-cam.rotate_deg[0], -cam.rotate_deg[1], -cam.rotate_deg[2]);
+    let view_r = Mat4::rotate(&cam.rotate_axis, -cam.rotate_deg);
     let view = Mat4::multiply(&view_r, &view_t);
     // projection matrix
     let w2 = (self.config.width / 2) as f32;

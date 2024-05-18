@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-const PI: f32 = 3.14159265;
+pub const PI: f32 = 3.14159265;
 
 pub struct Mat4;
 impl Mat4 {
@@ -56,31 +56,42 @@ impl Mat4 {
       -x, -y, -z, 1.0
     ]
   }
-  pub fn rotate_euler_f(roll: f32, pitch: f32, yaw: f32) -> [f32; 16] {
-    let a = roll * PI / 180.0;
-    let b = pitch * PI / 180.0;
-    let c = yaw * PI / 180.0;
-    let mat_a = [
-      1.0, 0.0,          0.0,         0.0,
-      0.0, f32::cos(a),  f32::sin(a), 0.0,
-      0.0, -f32::sin(a), f32::cos(a), 0.0,
-      0.0, 0.0,          0.0,         1.0
-    ];
-    let mat_b = [
-      f32::cos(b), 0.0, -f32::sin(b), 0.0,
-      0.0,         1.0, 0.0,          0.0,
-      f32::sin(b), 0.0, f32::cos(b),  0.0,
-      0.0,         0.0, 0.0,          1.0
-    ];
-    let mat_c = [
-      f32::cos(c),  f32::sin(c), 0.0, 0.0,
-      -f32::sin(c), f32::cos(c), 0.0, 0.0,
-      0.0,          0.0,         1.0, 0.0,
-      0.0,          0.0,         0.0, 1.0
-    ];
-    let mat_d = Mat4::multiply(&mat_b, &mat_a);
-    Mat4::multiply(&mat_c, &mat_d)
+  pub fn rotate(axis: &[f32; 3], deg: f32) -> [f32; 16] {
+    // normalize axis
+    let n = f32::sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+    let x = axis[0] / n;
+    let y = axis[1] / n;
+    let z = axis[2] / n;
+    // helpers
+    let xx = x * x;
+    let yy = y * y;
+    let zz = z * z;
+    let c = f32::cos(deg * PI / 180.0);
+    let s = f32::sin(deg * PI / 180.0);
+    let o = 1.0 - c;
+    [
+      xx + (1.0 - xx) * c,
+      x * y * o + z * s,
+      x * z * o - y * s,
+      0.0,
+
+      x * y * o - z * s,
+      yy + (1.0 - yy) * c,
+      y * z * o + x * s,
+      0.0,
+
+      x * z * o + y * s,
+      y * z * o - x * s,
+      zz + (1.0 - zz) * c,
+      0.0,
+
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
   }
+  // note: quaternion rotation preferred over euler rotation
   pub fn rotate_euler(roll: f32, pitch: f32, yaw: f32) -> [f32; 16] {
     let a = roll * PI / 180.0;
     let cosa = f32::cos(a);
@@ -185,42 +196,47 @@ impl Mat4 {
   }
 }
 
-pub struct Vec;
-impl Vec {
-  pub fn add_vec3(v1: &[f32; 3], v2: &[f32; 3]) -> [f32; 3] {
+pub struct Vec3;
+impl Vec3 {
+  pub fn add(v1: &[f32; 3], v2: &[f32; 3]) -> [f32; 3] {
     [
       v1[0] + v2[0],
       v1[1] + v2[1],
       v1[2] + v2[2]
     ]
   }
-  pub fn subtract_vec3(v1: &[f32; 3], v2: &[f32; 3]) -> [f32; 3] {
+  pub fn subtract(v1: &[f32; 3], v2: &[f32; 3]) -> [f32; 3] {
     [
       v1[0] - v2[0],
       v1[1] - v2[1],
       v1[2] - v2[2]
     ]
   }
-  pub fn dot_vec3(v1: &[f32; 3], v2: &[f32; 3]) -> f32 {
+  pub fn dot(v1: &[f32; 3], v2: &[f32; 3]) -> f32 {
     let mut out = v1[0] * v2[0];
     out = out + v1[1] * v2[1];
     out = out + v1[2] * v2[2];
     out
   }
-  pub fn cross_vec3(v1: &[f32; 3], v2: &[f32; 3]) -> [f32; 3] {
+  pub fn cross(v1: &[f32; 3], v2: &[f32; 3]) -> [f32; 3] {
     [
       v1[1] * v2[2] - v1[2] * v2[1],
       v1[2] * v2[0] - v1[0] * v2[2],
       v1[0] * v2[1] - v1[1] * v2[0]
     ]
   }
-  pub fn normalize_vec3(v: &[f32; 3]) -> [f32; 3] {
+  pub fn normalize(v: &[f32; 3]) -> [f32; 3] {
     let n = f32::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     [
       v[0] / n,
       v[1] / n,
       v[2] / n
     ]
+  }
+  // calculate quaternion rotation from 2 points
+  pub fn look_at(p1: &[f32; 3], p2: &[f32; 3]) -> ([f32; 3], f32) {
+    // to-do
+    ([0.0, 0.0, 1.0], 0.0)
   }
 }
 
@@ -249,26 +265,20 @@ mod lin_alg_tests {
   }
   #[test]
   fn mat4_rotate1() {
-    let a = Mat4::rotate_euler(0.0, 0.0, 30.0);
-    let b = Mat4::rotate_euler_f(0.0, 0.0, 30.0);
+    let a = Mat4::rotate(&[0.0, 0.0, 1.0], 30.0);
+    let b = Mat4::rotate_euler(0.0, 0.0, 30.0);
     assert_eq!(a, b);
   }
   #[test]
   fn mat4_rotate2() {
-    let a = Mat4::rotate_euler(0.0, 45.0, 0.0);
-    let b = Mat4::rotate_euler_f(0.0, 45.0, 0.0);
+    let a = Mat4::rotate(&[0.0, 1.0, 0.0], 45.0);
+    let b = Mat4::rotate_euler(0.0, 45.0, 0.0);
     assert_eq!(a, b);
   }
   #[test]
   fn mat4_rotate3() {
-    let a = Mat4::rotate_euler(60.0, 0.0, 0.0);
-    let b = Mat4::rotate_euler_f(60.0, 0.0, 0.0);
-    assert_eq!(a, b);
-  }
-  #[test]
-  fn mat4_rotate4() {
-    let a = Mat4::rotate_euler(120.0, 0.0, 30.0);
-    let b = Mat4::rotate_euler_f(120.0, 0.0, 30.0);
+    let a = Mat4::rotate(&[1.0, 0.0, 0.0], 60.0);
+    let b = Mat4::rotate_euler(60.0, 0.0, 0.0);
     assert_eq!(a, b);
   }
 }

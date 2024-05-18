@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 
 use crate::wgpu_root::{Renderer, RVertex};
-
-const PI: f32 = 3.14159265;
+use crate::lin_alg::PI;
 
 pub struct Shape {
   pub id: usize,
   pub pipe_id: usize,
   pub position: [f32; 3],
-  pub rotate_deg: [f32; 3],
+  pub rotate_axis: [f32; 3],
+  pub rotate_deg: f32,
   pub scale: [f32; 3],
   pub v_index: Option<Vec<f32>>
 }
@@ -19,7 +19,8 @@ impl Shape {
       id,
       pipe_id,
       position: [0.0, 0.0, 0.0],
-      rotate_deg: [0.0, 0.0, 0.0],
+      rotate_axis: [0.0, 0.0, 1.0],
+      rotate_deg: 0.0,
       scale: [1.0, 1.0, 1.0],
       v_index: None
     }
