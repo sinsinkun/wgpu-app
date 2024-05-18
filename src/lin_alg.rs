@@ -91,28 +91,27 @@ impl Mat4 {
     let c = yaw * PI / 180.0;
     let cosc = f32::cos(c);
     let sinc = f32::sin(c);
-    let v = [
+    [
       cosb * cosc,
-      sina * sinb * cosc - cosa * sinc,
-      cosa * sinb * cosc + sina * sinc,
-      0.0,
-
       cosb * sinc,
-      sina * sinb * sinc + cosa * cosc,
-      cosa * sinb * sinc - sina * cosc,
+      -sinb,
       0.0,
 
-      -sinb,
+      sina * sinb * cosc - cosa * sinc,
+      sina * sinb * sinc + cosa * cosc,
       sina * cosb,
+      0.0,
+
+      cosa * sinb * cosc + sina * sinc,
+      cosa * sinb * sinc - sina * cosc,
       cosa * cosb,
       0.0,
 
       0.0,
       0.0,
       0.0,
-      1.0
-    ];
-    Mat4::transpose(&v)
+      1.0,
+    ]
   }
   pub fn scale(x: f32, y: f32, z: f32) -> [f32; 16] {
     [

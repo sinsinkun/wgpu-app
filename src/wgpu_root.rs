@@ -546,7 +546,7 @@ impl<'a> Renderer<'a> {
     let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_r, &model_s));
     // view matrix
     let view_t = Mat4::translate(-cam.position[0], -cam.position[1], -cam.position[2]);
-    let view_r = Mat4::rotate_euler(cam.rotate_deg[0], cam.rotate_deg[1], cam.rotate_deg[2]);
+    let view_r = Mat4::rotate_euler(-cam.rotate_deg[0], -cam.rotate_deg[1], -cam.rotate_deg[2]);
     let view = Mat4::multiply(&view_r, &view_t);
     // projection matrix
     let w2 = (self.config.width / 2) as f32;

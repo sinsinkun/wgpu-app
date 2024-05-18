@@ -3,11 +3,11 @@ use std::thread;
 use std::time;
 
 use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalSize;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, KeyEvent, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{Key, NamedKey};
-use winit::window::{Window, WindowId};
+use winit::window::{Window, WindowId, CursorGrabMode};
 
 mod wgpu_root;
 mod primitives;
@@ -17,7 +17,7 @@ use app::AppEventLoop;
 
 // constants
 const WAIT_TIME: time::Duration = time::Duration::from_millis(1000);
-const POLL_SLEEP_TIME: time::Duration = time::Duration::from_millis(20);
+const POLL_SLEEP_TIME: time::Duration = time::Duration::from_millis(10);
 
 // definitions for winit window
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,17 +35,19 @@ struct ControlFlowApp<'a> {
 	close_requested: bool,
 	window: Option<Arc<Window>>,
 	app_event_loop: Option<AppEventLoop<'a>>,
+	window_size: (f32, f32),
 }
 
 impl Default for ControlFlowApp<'_> {
 	fn default() -> Self {
 		ControlFlowApp {
-			mode: Mode::Wait,
-			request_redraw: false, // toggle true to refresh by default
+			mode: Mode::Poll,
+			request_redraw: true, // toggle true to refresh by default
 			wait_cancelled: false,
 			close_requested: false,
 			window: None,
 			app_event_loop: None,
+			window_size: (0.0, 0.0)
 		}
 	}
 }
@@ -64,9 +66,10 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 			.with_title("Wgpu-rs");
 		let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 		self.window = Some(window.clone());
+		self.window_size = window.inner_size().into();
 
 		// divert init actions to app container
-		let mut app_base = AppEventLoop::new(window.clone());
+		let mut app_base = AppEventLoop::new(window.clone(), &self.window_size);
 		app_base.init();
 		self.app_event_loop = Some(app_base);
 	}
@@ -86,7 +89,8 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 					WindowEvent::KeyboardInput {
 						event: KeyEvent {
 							logical_key: key,
-							state: ElementState::Pressed,
+							state,
+							repeat,
 							..
 						},
 						..
@@ -95,25 +99,53 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 							// WARNING: Consider using `key_without_modifiers()` if available on your platform.
 							// See the `key_binding` example
 							Key::Named(NamedKey::F1) => {
-								self.mode = Mode::Wait;
-								println!("mode: {:?}", self.mode);
-							},
-							Key::Named(NamedKey::F2) => {
-								self.mode = Mode::WaitUntil;
-								println!("mode: {:?}", self.mode);
-							},
-							Key::Named(NamedKey::F3) => {
-								self.mode = Mode::Poll;
-								println!("mode: {:?}", self.mode);
-							},
-							Key::Named(NamedKey::Space) => {
-								self.request_redraw = !self.request_redraw;
-								println!("request_redraw: {}", self.request_redraw);
-							},
-							Key::Named(NamedKey::Escape) => {
-								self.close_requested = true;
+								if state == ElementState::Pressed {
+									self.mode = Mode::Wait;
+									println!("mode: {:?}", self.mode);
+								}
 							}
-							_ => (),
+							Key::Named(NamedKey::F2) => {
+								if state == ElementState::Pressed {
+									self.mode = Mode::WaitUntil;
+									println!("mode: {:?}", self.mode);
+								}
+							}
+							Key::Named(NamedKey::F3) => {
+								if state == ElementState::Pressed {
+									self.mode = Mode::Poll;
+									println!("mode: {:?}", self.mode);
+								}
+							}
+							Key::Named(NamedKey::F4) => {
+								if state == ElementState::Pressed {
+									self.request_redraw = !self.request_redraw;
+									println!("request_redraw: {}", self.request_redraw);
+								}
+							}
+							Key::Named(NamedKey::Escape) => {
+								if state == ElementState::Pressed {
+									self.close_requested = true;
+								}
+							}
+							Key::Named(NamedKey::Alt) => {
+								if let Some(win) = &self.window {
+									let x = self.window_size.0 / 2.0;
+									let y = self.window_size.1 / 2.0;
+									if state == ElementState::Pressed && !repeat {
+										println!("lock cursor");
+										win.set_cursor_grab(CursorGrabMode::Confined).unwrap();
+										win.set_cursor_position(PhysicalPosition{ x, y }).unwrap();
+										win.set_cursor_visible(false);
+									} else if state == ElementState::Released {
+										println!("unlock cursor");
+										win.set_cursor_grab(CursorGrabMode::None).unwrap();
+										win.set_cursor_visible(true);
+									} else {
+										win.set_cursor_position(PhysicalPosition{ x, y }).unwrap();
+									}
+								}
+							}
+							_ => ()
 						}
 					}
 					WindowEvent::RedrawRequested => {
@@ -131,6 +163,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 					WindowEvent::Resized(physical_size) => {
 						if let Some(app_base) = &mut self.app_event_loop {
 							app_base.resize(physical_size);
+							self.window_size = physical_size.into();
 						}
 					}
 					_ => (),
