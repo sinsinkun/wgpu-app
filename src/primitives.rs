@@ -7,20 +7,17 @@ const PI: f32 = 3.14159265;
 pub struct Shape {
   pub id: usize,
   pub pipe_id: usize,
-  pub vertices: Vec<RVertex>,
   pub position: [f32; 3],
   pub rotate_deg: [f32; 3],
   pub scale: [f32; 3],
   pub v_index: Option<Vec<f32>>
 }
-
 impl Shape {
   pub fn new(renderer: &mut Renderer, pipe_id: usize, vertex_data: Vec<RVertex>) -> Self {
-    let id = renderer.add_object(pipe_id, &vertex_data);
+    let id = renderer.add_object(pipe_id, vertex_data);
     Self {
       id,
       pipe_id,
-      vertices: vertex_data,
       position: [0.0, 0.0, 0.0],
       rotate_deg: [0.0, 0.0, 0.0],
       scale: [1.0, 1.0, 1.0],
@@ -30,41 +27,12 @@ impl Shape {
 }
 
 pub struct Primitives;
-
 impl Primitives {
   pub fn cube(width: f32, height: f32, depth: f32) -> Vec<RVertex> {
     let w = width /2.0;
     let h = height / 2.0;
     let d = depth / 2.0;
     vec![
-      // face front
-      RVertex { position: [w,h,d], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [w,-h,d], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [-w,-h,d], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [-w,-h,d], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [-w,h,d], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [w,h,d], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
-      // face back
-      RVertex { position: [-w,h,-d], uv: [0.0,0.0], normal: [0.0,0.0,-1.0] },
-      RVertex { position: [-w,-h,-d], uv: [0.0,1.0], normal: [0.0,0.0,-1.0] },
-      RVertex { position: [w,-h,-d], uv: [1.0,1.0], normal: [0.0,0.0,-1.0] },
-      RVertex { position: [w,-h,-d], uv: [1.0,1.0], normal: [0.0,0.0,-1.0] },
-      RVertex { position: [w,h,-d], uv: [1.0,0.0], normal: [0.0,0.0,-1.0] },
-      RVertex { position: [-w,h,-d], uv: [0.0,0.0], normal: [0.0,0.0,-1.0] },
-      // face left
-      RVertex { position: [-w,h,d], uv: [1.0,1.0], normal: [-1.0,0.0,0.0] },
-      RVertex { position: [-w,-h,d], uv: [1.0,0.0], normal: [-1.0,0.0,0.0] },
-      RVertex { position: [-w,-h,-d], uv: [0.0,0.0], normal: [-1.0,0.0,0.0] },
-      RVertex { position: [-w,-h,-d], uv: [0.0,0.0], normal: [-1.0,0.0,0.0] },
-      RVertex { position: [-w,h,-d], uv: [0.0,1.0], normal: [-1.0,0.0,0.0] },
-      RVertex { position: [-w,h,d], uv: [1.0,1.0], normal: [-1.0,0.0,0.0] },
-      // face right
-      RVertex { position: [w,h,-d], uv: [1.0,1.0], normal: [1.0,0.0,0.0] },
-      RVertex { position: [w,-h,-d], uv: [1.0,0.0], normal: [1.0,0.0,0.0] },
-      RVertex { position: [w,-h,d], uv: [0.0,0.0], normal: [1.0,0.0,0.0] },
-      RVertex { position: [w,-h,d], uv: [0.0,0.0], normal: [1.0,0.0,0.0] },
-      RVertex { position: [w,h,d], uv: [0.0,1.0], normal: [1.0,0.0,0.0] },
-      RVertex { position: [w,h,-d], uv: [1.0,1.0], normal: [1.0,0.0,0.0] },
       // face top
       RVertex { position: [w,-h,d], uv: [1.0,1.0], normal: [0.0,1.0,0.0] },
       RVertex { position: [w,-h,-d], uv: [1.0,0.0], normal: [0.0,1.0,0.0] },
@@ -79,6 +47,34 @@ impl Primitives {
       RVertex { position: [-w,h,d], uv: [0.0,0.0], normal: [0.0,-1.0,0.0] },
       RVertex { position: [-w,h,-d], uv: [0.0,1.0], normal: [0.0,-1.0,0.0] },
       RVertex { position: [w,h,-d], uv: [1.0,1.0], normal: [0.0,-1.0,0.0] },
+      // face left
+      RVertex { position: [-w,h,d], uv: [1.0,1.0], normal: [-1.0,0.0,0.0] },
+      RVertex { position: [-w,-h,d], uv: [1.0,0.0], normal: [-1.0,0.0,0.0] },
+      RVertex { position: [-w,-h,-d], uv: [0.0,0.0], normal: [-1.0,0.0,0.0] },
+      RVertex { position: [-w,-h,-d], uv: [0.0,0.0], normal: [-1.0,0.0,0.0] },
+      RVertex { position: [-w,h,-d], uv: [0.0,1.0], normal: [-1.0,0.0,0.0] },
+      RVertex { position: [-w,h,d], uv: [1.0,1.0], normal: [-1.0,0.0,0.0] },
+      // face right
+      RVertex { position: [w,h,-d], uv: [1.0,1.0], normal: [1.0,0.0,0.0] },
+      RVertex { position: [w,-h,-d], uv: [1.0,0.0], normal: [1.0,0.0,0.0] },
+      RVertex { position: [w,-h,d], uv: [0.0,0.0], normal: [1.0,0.0,0.0] },
+      RVertex { position: [w,-h,d], uv: [0.0,0.0], normal: [1.0,0.0,0.0] },
+      RVertex { position: [w,h,d], uv: [0.0,1.0], normal: [1.0,0.0,0.0] },
+      RVertex { position: [w,h,-d], uv: [1.0,1.0], normal: [1.0,0.0,0.0] },
+      // face back
+      RVertex { position: [-w,h,-d], uv: [0.0,0.0], normal: [0.0,0.0,-1.0] },
+      RVertex { position: [-w,-h,-d], uv: [0.0,1.0], normal: [0.0,0.0,-1.0] },
+      RVertex { position: [w,-h,-d], uv: [1.0,1.0], normal: [0.0,0.0,-1.0] },
+      RVertex { position: [w,-h,-d], uv: [1.0,1.0], normal: [0.0,0.0,-1.0] },
+      RVertex { position: [w,h,-d], uv: [1.0,0.0], normal: [0.0,0.0,-1.0] },
+      RVertex { position: [-w,h,-d], uv: [0.0,0.0], normal: [0.0,0.0,-1.0] },
+      // face front
+      RVertex { position: [w,h,d], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [w,-h,d], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [-w,-h,d], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [-w,-h,d], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [-w,h,d], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [w,h,d], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
     ]
   }
   pub fn rect(width: f32, height: f32, z_index: f32) -> Vec<RVertex> {

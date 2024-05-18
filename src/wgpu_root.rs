@@ -47,6 +47,46 @@ pub type RObjectId = usize;
 pub type RPipelineId = usize;
 pub type RTextureId = usize;
 
+// helper for defining camera/view matrix
+#[derive(Debug)]
+pub enum CameraType {
+  Orthographic,
+  Perspective,
+}
+
+// helper for defining camera/view matrix
+#[derive(Debug)]
+pub struct RCamera {
+  pub cam_type: CameraType,
+  pub position: [f32; 3],
+  pub rotate_deg: [f32; 3],
+  pub fov_y: f32,
+  pub near: f32,
+  pub far: f32,
+}
+impl RCamera {
+  pub fn new_ortho(near: f32, far: f32) -> Self {
+    Self {
+      cam_type: CameraType::Orthographic,
+      position: [0.0, 0.0, 0.0],
+      rotate_deg: [0.0, 0.0, 0.0],
+      fov_y: 0.0,
+      near,
+      far,
+    }
+  }
+  pub fn new_persp(fov_y: f32, near: f32, far: f32) -> Self {
+    Self {
+      cam_type: CameraType::Perspective,
+      position: [0.0, 0.0, 0.0],
+      rotate_deg: [0.0, 0.0, 0.0],
+      fov_y,
+      near,
+      far,
+    }
+  }
+}
+
 // -- PRIMARY RENDERER INTERFACE --
 #[derive(Debug)]
 pub struct Renderer<'a> {
@@ -58,6 +98,7 @@ pub struct Renderer<'a> {
   msaa: wgpu::Texture,
   zbuffer: wgpu::Texture,
   limits: wgpu::Limits,
+  pub default_cam: RCamera,
   pub clear_color: wgpu::Color,
   pub size: winit::dpi::PhysicalSize<u32>,
   pub pipelines: Vec<RPipeline>,
@@ -147,6 +188,10 @@ impl<'a> Renderer<'a> {
       view_formats: &[]
     });
 
+    // create default camera setup
+    let mut default_cam = RCamera::new_ortho(0.0, 1000.0);
+    default_cam.position = [0.0, 0.0, -100.0];
+
     return Self {
       surface,
       surface_format,
@@ -159,7 +204,8 @@ impl<'a> Renderer<'a> {
       msaa,
       zbuffer,
       limits: Limits::default(),
-      clear_color: Color { r: 0.01, g: 0.01, b: 0.02, a: 1.0 }
+      clear_color: Color { r: 0.01, g: 0.01, b: 0.02, a: 1.0 },
+      default_cam
     };
   }
 
@@ -441,7 +487,7 @@ impl<'a> Renderer<'a> {
     }
   }
 
-  pub fn add_object(&mut self, pipeline_id: RPipelineId, v_data: &Vec<RVertex>) -> RObjectId {
+  pub fn add_object(&mut self, pipeline_id: RPipelineId, v_data: Vec<RVertex>) -> RObjectId {
     let pipe = &mut self.pipelines[pipeline_id];
     let id = pipe.objects.len();
 
@@ -469,7 +515,8 @@ impl<'a> Renderer<'a> {
       &[0.0, 0.0, 0.0],
       &[0.0, 0.0, 0.0],
       &[1.0, 1.0, 1.0],
-      true
+      true,
+      None,
     );
     id
   }
@@ -482,23 +529,32 @@ impl<'a> Renderer<'a> {
     rotate_deg: &[f32; 3],
     scale: &[f32; 3],
     visible: bool,
-    // camera: RCamera,
+    camera: Option<&RCamera>,
   ) {
     let pipe = &mut self.pipelines[pipeline_id];
     let obj = &mut pipe.objects[object_id];
+    let cam = match camera {
+      Some(c) => c,
+      None => &self.default_cam
+    };
 
     obj.visible = visible;
     // model matrix
     let model_t = Mat4::translate(translate[0], translate[1], translate[2]);
-    let model_r = Mat4::rotate_euler_f(rotate_deg[0], rotate_deg[1], rotate_deg[2]);
+    let model_r = Mat4::rotate_euler(rotate_deg[0], rotate_deg[1], rotate_deg[2]);
     let model_s = Mat4::scale(scale[0], scale[1], scale[2]);
     let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_r, &model_s));
-    // view matrix (TODO: camera)
-    let view = Mat4::translate(0.0, 0.0, -200.0);
+    // view matrix
+    let view_t = Mat4::translate(-cam.position[0], -cam.position[1], -cam.position[2]);
+    let view_r = Mat4::rotate_euler(cam.rotate_deg[0], cam.rotate_deg[1], cam.rotate_deg[2]);
+    let view = Mat4::multiply(&view_r, &view_t);
     // projection matrix
     let w2 = (self.config.width / 2) as f32;
     let h2 = (self.config.height / 2) as f32;
-    let proj = Mat4::perspective(60.0, w2/h2, 10.0, 1000.0); //Mat4::ortho(-w2, w2, -h2, h2, 0.0, 1000.0);
+    let proj = match cam.cam_type {
+      CameraType::Orthographic => Mat4::ortho(-w2, w2, -h2, h2, cam.near, cam.far),
+      CameraType::Perspective => Mat4::perspective(cam.fov_y, w2/h2, cam.near, cam.far)
+    };
     // merge together
     let mut mvp: [f32; 48] = [0.0; 48]; // 16 * 3 = 48
     for i in 0..48 {

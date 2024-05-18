@@ -48,6 +48,14 @@ impl Mat4 {
       x, y, z, 1.0
     ]
   }
+  pub fn translate_inverse(x: f32, y: f32, z: f32) -> [f32; 16] {
+    [
+      1.0, 0.0, 0.0, 0.0,
+      0.0, 1.0, 0.0, 0.0,
+      0.0, 0.0, 1.0, 0.0,
+      -x, -y, -z, 1.0
+    ]
+  }
   pub fn rotate_euler_f(roll: f32, pitch: f32, yaw: f32) -> [f32; 16] {
     let a = roll * PI / 180.0;
     let b = pitch * PI / 180.0;
@@ -73,7 +81,6 @@ impl Mat4 {
     let mat_d = Mat4::multiply(&mat_b, &mat_a);
     Mat4::multiply(&mat_c, &mat_d)
   }
-  // incorrect?
   pub fn rotate_euler(roll: f32, pitch: f32, yaw: f32) -> [f32; 16] {
     let a = roll * PI / 180.0;
     let cosa = f32::cos(a);
@@ -84,7 +91,7 @@ impl Mat4 {
     let c = yaw * PI / 180.0;
     let cosc = f32::cos(c);
     let sinc = f32::sin(c);
-    [
+    let v = [
       cosb * cosc,
       sina * sinb * cosc - cosa * sinc,
       cosa * sinb * cosc + sina * sinc,
@@ -104,7 +111,8 @@ impl Mat4 {
       0.0,
       0.0,
       1.0
-    ]
+    ];
+    Mat4::transpose(&v)
   }
   pub fn scale(x: f32, y: f32, z: f32) -> [f32; 16] {
     [

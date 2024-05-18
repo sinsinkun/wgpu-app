@@ -15,7 +15,6 @@ Rust version: 1.76.0
 `cargo build`/`cargo run`
 
 ### To-do:
-- Fix transformation matrices
 - Implement textures
 - More primitives
 - Custom uniforms for shaders

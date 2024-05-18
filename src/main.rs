@@ -115,12 +115,11 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 							}
 							_ => (),
 						}
-					},
+					}
 					WindowEvent::RedrawRequested => {
 						let window = self.window.as_ref().unwrap();
 						if let Some(app_base) = &mut self.app_event_loop {
 							window.pre_present_notify();
-							println!("Rendering to screen");
 							match app_base.render() {
 								Ok(_) => (),
 								// pass out-of-memory error out to winit

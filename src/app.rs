@@ -1,26 +1,30 @@
 use std::sync::Arc;
 use winit::window::Window;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
-use winit::keyboard::Key;
+use winit::keyboard::{Key, NamedKey};
 use winit::dpi::PhysicalSize;
 
-use crate::wgpu_root::{RPipelineId, Renderer};
+use crate::wgpu_root::{RCamera, RPipelineId, Renderer};
 use crate::primitives::{Primitives, Shape};
 
 pub struct AppEventLoop<'a> {
   renderer: Renderer<'a>,
   frame: u32, // max value: ~4,295,000,000
   shapes: Vec<Shape>,
+  camera: RCamera,
 }
 
 impl AppEventLoop<'_> {
   pub fn new(window: Arc<Window>) -> Self {
     let wgpu = pollster::block_on(Renderer::new(window.clone()));
+    let mut cam = RCamera::new_persp(60.0, 1.0, 1000.0);
+    cam.position = [0.0, 0.0, 200.0];
 
     Self {
       renderer: wgpu,
       shapes: vec![],
       frame: 0,
+      camera: cam
     }
   }
 
@@ -31,8 +35,8 @@ impl AppEventLoop<'_> {
     let pipe1: RPipelineId = self.renderer.add_pipeline(shader1, 10, None, None);
 
     let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
-    let cube_data2 = Primitives::cube(50.0, 50.0, 50.0);
-    let cube_data3 = Primitives::cube(50.0, 50.0, 50.0);
+    let cube_data2 = Primitives::cube(50.0, 30.0, 70.0);
+    let cube_data3 = Primitives::cube(80.0, 50.0, 50.0);
     let cube1 = Shape::new(&mut self.renderer, pipe1, cube_data1);
     let mut cube2 = Shape::new(&mut self.renderer, pipe1, cube_data2);
     cube2.position = [60.0, 60.0, 0.0];
@@ -57,48 +61,57 @@ impl AppEventLoop<'_> {
       } => {
         *request_redraw = true;
         match key.as_ref() {
+          // rotate boxes
           Key::Character("w") => {
             for obj in &mut self.shapes {
               obj.rotate_deg[0] += 5.0;
             }
-            true
           }
           Key::Character("s") => {
             for obj in &mut self.shapes {
               obj.rotate_deg[0] -= 5.0;
             }
-            true
           }
           Key::Character("a") => {
             for obj in &mut self.shapes {
               obj.rotate_deg[1] -= 5.0;
             }
-            true
           }
           Key::Character("d") => {
             for obj in &mut self.shapes {
               obj.rotate_deg[1] += 5.0;
             }
-            true
           }
           Key::Character("q") => {
             for obj in &mut self.shapes {
               obj.rotate_deg[2] += 5.0;
             }
-            true
           }
           Key::Character("e") => {
             for obj in &mut self.shapes {
               obj.rotate_deg[2] -= 5.0;
             }
-            true
           }
+          // control camera
+          Key::Named(NamedKey::ArrowUp) => {
+            self.camera.rotate_deg[0] -= 5.0;
+          }
+          Key::Named(NamedKey::ArrowDown) => {
+            self.camera.rotate_deg[0] += 5.0;
+          }
+          Key::Named(NamedKey::ArrowLeft) => {
+            self.camera.rotate_deg[1] -= 5.0;
+          }
+          Key::Named(NamedKey::ArrowRight) => {
+            self.camera.rotate_deg[1] += 5.0;
+          }
+          // catch all
           _ => {
             let debug = key.as_ref();
             println!("Unhandled key: {debug:?}");
-            true
           }
-        }
+        };
+        true
       }
       #[allow(unused_variables)]
       WindowEvent::CursorMoved { device_id, position } => true,
@@ -109,7 +122,15 @@ impl AppEventLoop<'_> {
   // update logic
   pub fn update(&mut self) {
     for obj in &self.shapes {
-      self.renderer.update_object(obj.pipe_id, obj.id, &obj.position, &obj.rotate_deg, &obj.scale, true);
+      self.renderer.update_object(
+        obj.pipe_id,
+        obj.id,
+        &obj.position,
+        &obj.rotate_deg,
+        &obj.scale,
+        true,
+        Some(&self.camera)
+      );
     }
   }
 
