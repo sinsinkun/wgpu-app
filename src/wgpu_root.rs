@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
-use std::sync::Arc;
-use std::num::NonZeroU64;
+use std::{path::Path, sync::Arc, num::NonZeroU64};
 
 use winit::window::Window;
+use image::{io::Reader as ImageReader, DynamicImage, GenericImageView};
 
 use wgpu::*;
 use bytemuck::{Pod, Zeroable};
@@ -255,21 +255,44 @@ impl<'a> Renderer<'a> {
     }
   }
 
-  pub fn _add_texture(&mut self, width: u32, height: u32, texture_data: Option<&[u8]>) -> RTextureId {
+  pub fn add_texture(&mut self, width: u32, height: u32, texture_path: Option<&Path>, use_device_format: bool) -> RTextureId {
     let id = self.textures.len();
-    let texture_size = Extent3d { width, height, depth_or_array_layers: 1 };
+    let mut texture_size = Extent3d { width, height, depth_or_array_layers: 1 };
+    let mut texture_data: Option<DynamicImage> = None;
+
+    // modify texture size/data based on file data
+    if let Some(str) = texture_path {
+      match ImageReader::open(str) {
+        Ok(img_file) => match img_file.decode() {
+          Ok(img_data) => {
+            texture_size.width = img_data.dimensions().0;
+            texture_size.height = img_data.dimensions().1;
+            texture_data = Some(img_data);
+          }
+          Err(..) => {
+            eprintln!("Err: Could not decode image file");
+          }
+        }
+        Err(..) => {
+          eprintln!("Err: Could not open image file");
+        }
+      };
+    }
+
     // create texture
+    let tex_format = if use_device_format { self.surface_format } 
+    else { TextureFormat::Rgba8Unorm };
     let texture = self.device.create_texture(&TextureDescriptor {
       label: Some("input-texture"),
       size: texture_size,
       sample_count: 1,
       mip_level_count: 1,
       dimension: TextureDimension::D2,
-      format: TextureFormat::Rgba8Unorm,
+      format: tex_format,
       usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
       view_formats: &[]
     });
-    if let Some(data) = texture_data {
+    if let Some(img) = texture_data {
       // copy image into texture
       self.queue.write_texture(
         ImageCopyTexture {
@@ -278,11 +301,11 @@ impl<'a> Renderer<'a> {
           origin: Origin3d::ZERO,
           aspect: TextureAspect::All,
         }, 
-        data,
+        &img.to_rgba8(),
         ImageDataLayout {
           offset: 0,
-          bytes_per_row: Some(4 * width),
-          rows_per_image: Some(height),
+          bytes_per_row: Some(4 * texture_size.width),
+          rows_per_image: Some(texture_size.height),
         },
         texture_size
       );
@@ -292,27 +315,98 @@ impl<'a> Renderer<'a> {
     id
   }
 
-  pub fn _update_texture() {
-    todo!()
+  pub fn update_texture(&mut self, texture_id: usize, texture_path: &Path) {
+    let texture = &mut self.textures[texture_id];
+    match ImageReader::open(texture_path) {
+      Ok(img_file) => match img_file.decode() {
+        Ok(img_data) => {
+          // get data from image file
+          let rgba8 = img_data.to_rgba8();
+          let dimensions = img_data.dimensions();
+          let texture_size = Extent3d { 
+            width: dimensions.0,
+            height: dimensions.1,
+            depth_or_array_layers: 1
+          };
+          // write to texture
+          self.queue.write_texture(
+            ImageCopyTexture {
+              texture: &texture,
+              mip_level: 0,
+              origin: Origin3d::ZERO,
+              aspect: TextureAspect::All,
+            },
+            &rgba8,
+            ImageDataLayout {
+              offset: 0,
+              bytes_per_row: Some(4 * dimensions.0),
+              rows_per_image: Some(dimensions.1),
+            },
+            texture_size
+          );
+        }
+        Err(..) => {
+          eprintln!("Err: Could not decode image file");
+        }
+      }
+      Err(..) => {
+        eprintln!("Err: Could not open image file");
+      }
+    }
   }
 
-  pub fn _update_texture_size() {
-    todo!()
+  pub fn update_texture_size(&mut self, texture_id: usize, pipeline_id: Option<usize>, width: u32, height: u32) {
+    let old_texture = &mut self.textures[texture_id];
+    old_texture.destroy();
+
+    // make new texture
+    let texture_size = Extent3d { width, height, depth_or_array_layers: 1 };
+    let new_texture = self.device.create_texture(&TextureDescriptor {
+      label: Some("input-texture"),
+      size: texture_size,
+      sample_count: 1,
+      mip_level_count: 1,
+      dimension: TextureDimension::D2,
+      format: TextureFormat::Rgba8Unorm,
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+      view_formats: &[]
+    });
+    self.textures[texture_id] = new_texture;
+
+    // update bind group
+    if let Some(p_id) = pipeline_id {
+      let new_bind_id = {
+        let pipeline = &self.pipelines[p_id];
+        let pipe = &pipeline.pipe;
+        self.add_bind_group(pipe, pipeline.max_obj_count, Some(texture_id))
+      };
+      let pipeline = &mut self.pipelines[p_id];
+      pipeline.bind_group0 = new_bind_id;
+    }
   }
 
   pub fn add_pipeline(
     &mut self,
-    shader: ShaderSource,
+    shader: Option<&str>,
     max_obj_count: usize,
     texture_id: Option<usize>,
     cull_mode: Option<Face>,
   ) -> RPipelineId {
     let id: usize = self.pipelines.len();
+    let shader_src: ShaderSource;
+
+    // get shader data
+    if let Some(shader_data) = shader {
+      shader_src = ShaderSource::Wgsl(shader_data.into());
+    } else {
+      println!("WARN: No shader provided, loading default");
+      shader_src = ShaderSource::Wgsl(include_str!("base.wgsl").into());
+    }
 
     // build render pipeline
     let shader_mod = self.device.create_shader_module(ShaderModuleDescriptor {
       label: Some("shader-module"),
-      source: shader,
+      source: shader_src,
     });
     let bind_group_layout = self.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       label: Some("bind-group-layout"),
@@ -547,10 +641,10 @@ impl<'a> Renderer<'a> {
     // model matrix
     let model_t = Mat4::translate(translate[0], translate[1], translate[2]);
     let model_r = Mat4::rotate(rotate_axis, rotate_deg);
-    let model_s = Mat4::scale(scale[0], scale[1], scale[2]);
-    let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_r, &model_s));
+    let model_s = Mat4::scale(-scale[0], -scale[1], -scale[2]);
+    let model = Mat4::multiply(&model_s, &Mat4::multiply(&model_t, &model_r));
     // view matrix
-    let view_t = Mat4::translate(-&cam.position[0], -&cam.position[1], -&cam.position[2]);
+    let view_t = Mat4::translate(-cam.position[0], -cam.position[1], -cam.position[2]);
     let view_r = Mat4::view_rot(&cam.position, &cam.look_at, &cam.up);
     let view = Mat4::multiply(&view_r, &view_t);
     // projection matrix

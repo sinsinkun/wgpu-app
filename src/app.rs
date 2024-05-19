@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use std::{fs, path::Path, sync::Arc};
+
 use winit::window::Window;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::keyboard::Key;
@@ -33,8 +34,16 @@ impl AppEventLoop<'_> {
   // initialize app objects
   pub fn init(&mut self) {
     // initialize pipeline
-    let shader1 = wgpu::ShaderSource::Wgsl(include_str!("base.wgsl").into());
-    let pipe1: RPipelineId = self.renderer.add_pipeline(shader1, 10, None, None);
+    let shader = fs::read_to_string("assets/test.wgsl").unwrap();
+    let texture1 = self.renderer.add_texture(10, 10, Some(Path::new("assets/test_uv_map.png")), false);
+    let texture2 = self.renderer.add_texture(
+      (self.screen_center.0 * 2.0) as u32,
+      (self.screen_center.1 * 2.0) as u32,
+      None,
+      true
+    );
+    let pipe1: RPipelineId = self.renderer.add_pipeline(None, 10, Some(texture1), None);
+    let pipe2: RPipelineId = self.renderer.add_pipeline(Some(&shader), 1, Some(texture2), None);
 
     let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
     let cube_data2 = Primitives::cube(60.0, 60.0, 60.0);
@@ -47,9 +56,13 @@ impl AppEventLoop<'_> {
     cube3.position = [-60.0, 0.0, 0.0];
     cube3.rotate_axis = [0.0, 0.5, 1.0];
 
+    let rect_data = Primitives::rect(self.screen_center.0 * 0.5, self.screen_center.1 * 0.5, 0.0);
+    let rect = Shape::new(&mut self.renderer, pipe2, rect_data);
+
     self.shapes.push(cube1);
     self.shapes.push(cube2);
     self.shapes.push(cube3);
+    self.shapes.push(rect);
   }
 
   // handle inputs
@@ -85,12 +98,12 @@ impl AppEventLoop<'_> {
               self.camera.position[0] += 5.0;
             }
           }
-          Key::Character("x") => {
+          Key::Character("q") => {
             if state == &ElementState::Pressed {
               self.camera.position[1] += 5.0;
             }
           }
-          Key::Character("c") => {
+          Key::Character("e") => {
             if state == &ElementState::Pressed {
               self.camera.position[1] -= 5.0;
             }
@@ -118,24 +131,54 @@ impl AppEventLoop<'_> {
   // update logic
   pub fn update(&mut self) {
     for obj in &mut self.shapes {
-      obj.rotate_deg = self.frame as f32;
-      self.renderer.update_object(
-        obj.pipe_id,
-        obj.id,
-        &obj.position,
-        &obj.rotate_axis,
-        obj.rotate_deg,
-        &obj.scale,
-        true,
-        Some(&self.camera)
-      );
+      if obj.pipe_id == 1 { 
+        obj.position = [-self.screen_center.0 * 0.75, self.screen_center.1 * 0.75, 0.0];
+        self.renderer.update_object(
+          obj.pipe_id,
+          obj.id,
+          &obj.position,
+          &obj.rotate_axis,
+          obj.rotate_deg,
+          &obj.scale,
+          true,
+          None,
+        );
+      } else {
+        obj.rotate_deg = self.frame as f32;
+        self.renderer.update_object(
+          obj.pipe_id,
+          obj.id,
+          &obj.position,
+          &obj.rotate_axis,
+          obj.rotate_deg,
+          &obj.scale,
+          true,
+          Some(&self.camera)
+        );
+      }
     }
   }
 
   // call render
   pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
     self.frame += 1;
-    match self.renderer.render(&[0], None) {
+    let _ = match self.renderer.render(&[0], Some(1)) {
+      Ok(_) => Ok(()),
+      // Reconfigure the surface if lost
+      Err(wgpu::SurfaceError::Lost) => {
+        self.renderer.resize_canvas(self.renderer.size);
+        self.update();
+        Ok(())
+      }
+      // The system is out of memory, we should probably quit
+      Err(wgpu::SurfaceError::OutOfMemory) => Err(wgpu::SurfaceError::OutOfMemory),
+      // All other errors (Outdated, Timeout) should be resolved by the next frame
+      Err(e) => {
+        eprintln!("{:?}", e);
+        Ok(())
+      }
+    };
+    match self.renderer.render(&[0, 1], None) {
       Ok(_) => Ok(()),
       // Reconfigure the surface if lost
       Err(wgpu::SurfaceError::Lost) => {
