@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use winit::window::Window;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
-use winit::keyboard::{Key, NamedKey};
+use winit::keyboard::Key;
 use winit::dpi::PhysicalSize;
 
 use crate::wgpu_root::{RCamera, RPipelineId, Renderer};
@@ -53,7 +53,7 @@ impl AppEventLoop<'_> {
   }
 
   // handle inputs
-  pub fn input(&mut self, event: &WindowEvent, request_redraw: &mut bool) -> bool {
+  pub fn input(&mut self, event: &WindowEvent) -> bool {
     match event {
       WindowEvent::KeyboardInput { 
         event: KeyEvent {
@@ -63,7 +63,6 @@ impl AppEventLoop<'_> {
         },
         ..
       } => {
-        *request_redraw = true;
         match key.as_ref() {
           // rotate camera
           Key::Character("w") => {
@@ -86,7 +85,7 @@ impl AppEventLoop<'_> {
               self.camera.position[0] += 5.0;
             }
           }
-          Key::Named(NamedKey::Space) => {
+          Key::Character("x") => {
             if state == &ElementState::Pressed {
               self.camera.position[1] += 5.0;
             }

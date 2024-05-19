@@ -80,95 +80,97 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 		_window_id: WindowId,
 		event: WindowEvent,
 	) {
+		// perform app input handling first
 		if let Some(app_base) = &mut self.app_event_loop {
-			if app_base.input(&event, &mut self.request_redraw) {
-				match event {
-					WindowEvent::CloseRequested => {
-						self.close_requested = true;
-					}
-					WindowEvent::KeyboardInput {
-						event: KeyEvent {
-							logical_key: key,
-							state,
-							repeat,
-							..
-						},
-						..
-					} => {
-						match key.as_ref() {
-							// WARNING: Consider using `key_without_modifiers()` if available on your platform.
-							// See the `key_binding` example
-							Key::Named(NamedKey::F1) => {
-								if state == ElementState::Pressed {
-									self.mode = Mode::Wait;
-									println!("mode: {:?}", self.mode);
-								}
-							}
-							Key::Named(NamedKey::F2) => {
-								if state == ElementState::Pressed {
-									self.mode = Mode::WaitUntil;
-									println!("mode: {:?}", self.mode);
-								}
-							}
-							Key::Named(NamedKey::F3) => {
-								if state == ElementState::Pressed {
-									self.mode = Mode::Poll;
-									println!("mode: {:?}", self.mode);
-								}
-							}
-							Key::Named(NamedKey::F4) => {
-								if state == ElementState::Pressed {
-									self.request_redraw = !self.request_redraw;
-									println!("request_redraw: {}", self.request_redraw);
-								}
-							}
-							Key::Named(NamedKey::Escape) => {
-								if state == ElementState::Pressed {
-									self.close_requested = true;
-								}
-							}
-							Key::Named(NamedKey::Alt) => {
-								if let Some(win) = &self.window {
-									let x = self.window_size.0 / 2.0;
-									let y = self.window_size.1 / 2.0;
-									if state == ElementState::Pressed && !repeat {
-										println!("lock cursor");
-										win.set_cursor_grab(CursorGrabMode::Confined).unwrap();
-										win.set_cursor_position(PhysicalPosition{ x, y }).unwrap();
-										win.set_cursor_visible(false);
-									} else if state == ElementState::Released {
-										println!("unlock cursor");
-										win.set_cursor_grab(CursorGrabMode::None).unwrap();
-										win.set_cursor_visible(true);
-									} else {
-										win.set_cursor_position(PhysicalPosition{ x, y }).unwrap();
-									}
-								}
-							}
-							_ => ()
+			app_base.input(&event);
+			self.request_redraw = true;
+		}
+		// window related input handling
+		match event {
+			WindowEvent::CloseRequested => {
+				self.close_requested = true;
+			}
+			WindowEvent::KeyboardInput {
+				event: KeyEvent {
+					logical_key: key,
+					state,
+					repeat,
+					..
+				},
+				..
+			} => {
+				match key.as_ref() {
+					// WARNING: Consider using `key_without_modifiers()` if available on your platform.
+					// See the `key_binding` example
+					Key::Named(NamedKey::F1) => {
+						if state == ElementState::Pressed {
+							self.mode = Mode::Wait;
+							println!("mode: {:?}", self.mode);
 						}
 					}
-					WindowEvent::RedrawRequested => {
-						let window = self.window.as_ref().unwrap();
-						if let Some(app_base) = &mut self.app_event_loop {
-							window.pre_present_notify();
-							match app_base.render() {
-								Ok(_) => (),
-								// pass out-of-memory error out to winit
-								Err(wgpu::SurfaceError::OutOfMemory) => self.close_requested = true,
-								Err(e) => eprintln!("{:?}", e),
+					Key::Named(NamedKey::F2) => {
+						if state == ElementState::Pressed {
+							self.mode = Mode::WaitUntil;
+							println!("mode: {:?}", self.mode);
+						}
+					}
+					Key::Named(NamedKey::F3) => {
+						if state == ElementState::Pressed {
+							self.mode = Mode::Poll;
+							println!("mode: {:?}", self.mode);
+						}
+					}
+					Key::Named(NamedKey::Space) => {
+						if state == ElementState::Pressed {
+							self.request_redraw = !self.request_redraw;
+							println!("request_redraw: {}", self.request_redraw);
+						}
+					}
+					Key::Named(NamedKey::Escape) => {
+						if state == ElementState::Pressed {
+							self.close_requested = true;
+						}
+					}
+					Key::Named(NamedKey::Alt) => {
+						if let Some(win) = &self.window {
+							let x = self.window_size.0 / 2.0;
+							let y = self.window_size.1 / 2.0;
+							if state == ElementState::Pressed && !repeat {
+								println!("lock cursor");
+								win.set_cursor_grab(CursorGrabMode::Confined).unwrap();
+								win.set_cursor_position(PhysicalPosition{ x, y }).unwrap();
+								win.set_cursor_visible(false);
+							} else if state == ElementState::Released {
+								println!("unlock cursor");
+								win.set_cursor_grab(CursorGrabMode::None).unwrap();
+								win.set_cursor_visible(true);
+							} else {
+								win.set_cursor_position(PhysicalPosition{ x, y }).unwrap();
 							}
 						}
 					}
-					WindowEvent::Resized(physical_size) => {
-						if let Some(app_base) = &mut self.app_event_loop {
-							app_base.resize(physical_size);
-							self.window_size = physical_size.into();
-						}
-					}
-					_ => (),
+					_ => ()
 				}
 			}
+			WindowEvent::RedrawRequested => {
+				let window = self.window.as_ref().unwrap();
+				if let Some(app_base) = &mut self.app_event_loop {
+					window.pre_present_notify();
+					match app_base.render() {
+						Ok(_) => (),
+						// pass out-of-memory error out to winit
+						Err(wgpu::SurfaceError::OutOfMemory) => self.close_requested = true,
+						Err(e) => eprintln!("{:?}", e),
+					}
+				}
+			}
+			WindowEvent::Resized(physical_size) => {
+				if let Some(app_base) = &mut self.app_event_loop {
+					app_base.resize(physical_size);
+					self.window_size = physical_size.into();
+				}
+			}
+			_ => (),
 		}
 	}
 
