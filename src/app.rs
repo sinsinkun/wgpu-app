@@ -41,10 +41,10 @@ impl AppEventLoop<'_> {
     let cube_data3 = Primitives::cube(80.0, 80.0, 80.0);
     let cube1 = Shape::new(&mut self.renderer, pipe1, cube_data1);
     let mut cube2 = Shape::new(&mut self.renderer, pipe1, cube_data2);
-    cube2.position = [60.0, 60.0, 0.0];
+    cube2.position = [60.0, 0.0, 0.0];
     cube2.rotate_axis = [1.0, 0.5, 0.0];
     let mut cube3 = Shape::new(&mut self.renderer, pipe1, cube_data3);
-    cube3.position = [-60.0, -30.0, 0.0];
+    cube3.position = [-60.0, 0.0, 0.0];
     cube3.rotate_axis = [0.0, 0.5, 1.0];
 
     self.shapes.push(cube1);
@@ -100,7 +100,7 @@ impl AppEventLoop<'_> {
             if state == &ElementState::Pressed {
               println!("reset");
               self.camera.position = [0.0, 0.0, 200.0];
-              self.camera.rotate_deg = 0.0;
+              self.camera.look_at = [0.0, 0.0, 0.0];
             }
           }
           // catch all

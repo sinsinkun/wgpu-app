@@ -194,6 +194,17 @@ impl Mat4 {
     }
     dst
   }
+  pub fn view_rot(cam: &[f32; 3], target: &[f32; 3], up: &[f32; 3]) ->  [f32;16] {
+    let fwd = Vec3::normalize(&Vec3::subtract(cam, target));
+    let right = Vec3::normalize(&Vec3::cross(up, &fwd));
+    let n_up = Vec3::normalize(&Vec3::cross(&fwd, &right));
+    [
+      right[0], n_up[0], fwd[0], 0.0,
+      right[1], n_up[1], fwd[1], 0.0,
+      right[2], n_up[2], fwd[2], 0.0,
+      0.0, 0.0, 0.0, 1.0
+    ]
+  }
 }
 
 pub struct Vec3;
@@ -227,16 +238,15 @@ impl Vec3 {
   }
   pub fn normalize(v: &[f32; 3]) -> [f32; 3] {
     let n = f32::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    if n < 0.00001 { return [0.0, 0.0, 0.0] }
     [
       v[0] / n,
       v[1] / n,
       v[2] / n
     ]
   }
-  // calculate quaternion rotation from 2 points
-  pub fn look_at(p1: &[f32; 3], p2: &[f32; 3]) -> ([f32; 3], f32) {
-    // to-do
-    ([0.0, 0.0, 1.0], 0.0)
+  pub fn magnitude(v: &[f32; 3]) -> f32 {
+    f32::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
   }
 }
 
