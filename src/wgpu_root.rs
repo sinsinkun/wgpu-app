@@ -192,8 +192,7 @@ impl<'a> Renderer<'a> {
     });
 
     // create default camera setup
-    let mut default_cam = RCamera::new_ortho(0.0, 1000.0);
-    default_cam.position = [0.0, 0.0, -100.0];
+    let default_cam = RCamera::new_ortho(0.0, 1000.0);
 
     return Self {
       surface,
@@ -357,7 +356,6 @@ impl<'a> Renderer<'a> {
 
   pub fn update_texture_size(&mut self, texture_id: usize, pipeline_id: Option<usize>, width: u32, height: u32) {
     let old_texture = &mut self.textures[texture_id];
-    old_texture.destroy();
 
     // make new texture
     let texture_size = Extent3d { width, height, depth_or_array_layers: 1 };
@@ -367,10 +365,11 @@ impl<'a> Renderer<'a> {
       sample_count: 1,
       mip_level_count: 1,
       dimension: TextureDimension::D2,
-      format: TextureFormat::Rgba8Unorm,
+      format: old_texture.format(),
       usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
       view_formats: &[]
     });
+    old_texture.destroy();
     self.textures[texture_id] = new_texture;
 
     // update bind group
@@ -641,8 +640,8 @@ impl<'a> Renderer<'a> {
     // model matrix
     let model_t = Mat4::translate(translate[0], translate[1], translate[2]);
     let model_r = Mat4::rotate(rotate_axis, rotate_deg);
-    let model_s = Mat4::scale(-scale[0], -scale[1], -scale[2]);
-    let model = Mat4::multiply(&model_s, &Mat4::multiply(&model_t, &model_r));
+    let model_s = Mat4::scale(scale[0], scale[1], scale[2]);
+    let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_s, &model_r));
     // view matrix
     let view_t = Mat4::translate(-cam.position[0], -cam.position[1], -cam.position[2]);
     let view_r = Mat4::view_rot(&cam.position, &cam.look_at, &cam.up);

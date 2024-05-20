@@ -46,7 +46,7 @@ impl AppEventLoop<'_> {
     let pipe2: RPipelineId = self.renderer.add_pipeline(Some(&shader), 1, Some(texture2), None);
 
     let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
-    let cube_data2 = Primitives::cube(60.0, 60.0, 60.0);
+    let cube_data2 = Primitives::cube(20.0, 20.0, 60.0);
     let cube_data3 = Primitives::cube(80.0, 80.0, 80.0);
     let cube1 = Shape::new(&mut self.renderer, pipe1, cube_data1);
     let mut cube2 = Shape::new(&mut self.renderer, pipe1, cube_data2);
@@ -56,7 +56,7 @@ impl AppEventLoop<'_> {
     cube3.position = [-60.0, 0.0, 0.0];
     cube3.rotate_axis = [0.0, 0.5, 1.0];
 
-    let rect_data = Primitives::rect(self.screen_center.0 * 0.5, self.screen_center.1 * 0.5, 0.0);
+    let rect_data = Primitives::rect(0.5, 0.5, 0.0);
     let rect = Shape::new(&mut self.renderer, pipe2, rect_data);
 
     self.shapes.push(cube1);
@@ -131,8 +131,9 @@ impl AppEventLoop<'_> {
   // update logic
   pub fn update(&mut self) {
     for obj in &mut self.shapes {
-      if obj.pipe_id == 1 { 
-        obj.position = [-self.screen_center.0 * 0.75, self.screen_center.1 * 0.75, 0.0];
+      if obj.pipe_id == 1 {
+        obj.position = [-self.screen_center.0 * 0.75, -self.screen_center.1 * 0.75, 0.0];
+        obj.scale = [self.screen_center.0, self.screen_center.1, 1.0];
         self.renderer.update_object(
           obj.pipe_id,
           obj.id,
@@ -162,22 +163,7 @@ impl AppEventLoop<'_> {
   // call render
   pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
     self.frame += 1;
-    let _ = match self.renderer.render(&[0], Some(1)) {
-      Ok(_) => Ok(()),
-      // Reconfigure the surface if lost
-      Err(wgpu::SurfaceError::Lost) => {
-        self.renderer.resize_canvas(self.renderer.size);
-        self.update();
-        Ok(())
-      }
-      // The system is out of memory, we should probably quit
-      Err(wgpu::SurfaceError::OutOfMemory) => Err(wgpu::SurfaceError::OutOfMemory),
-      // All other errors (Outdated, Timeout) should be resolved by the next frame
-      Err(e) => {
-        eprintln!("{:?}", e);
-        Ok(())
-      }
-    };
+    let _ = self.renderer.render(&[0], Some(1));
     match self.renderer.render(&[0, 1], None) {
       Ok(_) => Ok(()),
       // Reconfigure the surface if lost
@@ -200,6 +186,7 @@ impl AppEventLoop<'_> {
   pub fn resize(&mut self, physical_size: PhysicalSize<u32>) {
     self.renderer.resize_canvas(physical_size);
     self.screen_center = (physical_size.width as f32 / 2.0, physical_size.height as f32 / 2.0);
+    self.renderer.update_texture_size(1, Some(1), physical_size.width, physical_size.height);
     self.update();
   }
 }
