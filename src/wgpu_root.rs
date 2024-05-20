@@ -97,13 +97,12 @@ pub struct Renderer<'a> {
   surface_format: wgpu::TextureFormat,
   device: wgpu::Device,
   queue: wgpu::Queue,
-  config: wgpu::SurfaceConfiguration,
+  pub config: wgpu::SurfaceConfiguration,
   msaa: wgpu::Texture,
   zbuffer: wgpu::Texture,
   limits: wgpu::Limits,
   pub default_cam: RCamera,
   pub clear_color: wgpu::Color,
-  pub size: winit::dpi::PhysicalSize<u32>,
   pub pipelines: Vec<RPipeline>,
   pub textures: Vec<wgpu::Texture>
 }
@@ -200,7 +199,6 @@ impl<'a> Renderer<'a> {
       device,
       queue,
       config,
-      size,
       pipelines: Vec::new(),
       textures: Vec::new(),
       msaa,
@@ -211,16 +209,15 @@ impl<'a> Renderer<'a> {
     };
   }
 
-  pub fn resize_canvas(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-    if new_size.width > 0 && new_size.height > 0 {
-      self.size = new_size;
-      self.config.width = new_size.width;
-      self.config.height = new_size.height;
+  pub fn resize_canvas(&mut self, width: u32, height: u32) {
+    if width > 0 && height > 0 {
+      self.config.width = width;
+      self.config.height = height;
       self.surface.configure(&self.device, &self.config);
 
       let texture_size = wgpu::Extent3d {
-        width: new_size.width,
-        height: new_size.height,
+        width,
+        height,
         depth_or_array_layers: 1,
       };
 

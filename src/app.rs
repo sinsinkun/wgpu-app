@@ -1,12 +1,32 @@
-use std::{fs, path::Path, sync::Arc};
-
-use winit::window::Window;
-use winit::event::{ElementState, KeyEvent, WindowEvent};
-use winit::keyboard::Key;
-use winit::dpi::PhysicalSize;
+use std::{fs, path::Path};
 
 use crate::wgpu_root::{RCamera, RPipelineId, Renderer};
 use crate::primitives::{Primitives, Shape};
+
+// input handling helper
+#[derive(Debug, Clone, PartialEq)]
+pub enum InputState {
+  None, Press, Hold, Release
+}
+pub enum InputKey {
+  Up, Down, Left, Right, Fwd, Bkwd,
+}
+
+#[derive(Debug)]
+pub struct InputCache {
+  move_x: i32,
+  move_y: i32,
+  move_z: i32,
+}
+impl Default for InputCache {
+  fn default() -> Self {
+    Self {
+      move_x: 0,
+      move_y: 0,
+      move_z: 0,
+    }  
+  }
+}
 
 pub struct AppEventLoop<'a> {
   renderer: Renderer<'a>,
@@ -14,20 +34,21 @@ pub struct AppEventLoop<'a> {
   shapes: Vec<Shape>,
   camera: RCamera,
   screen_center: (f32, f32),
+  pub input_cache: InputCache,
 }
 
-impl AppEventLoop<'_> {
-  pub fn new(window: Arc<Window>, window_size: &(f32, f32)) -> Self {
-    let wgpu = pollster::block_on(Renderer::new(window.clone()));
+impl<'a> AppEventLoop<'a> {
+  pub fn new(wgpu: Renderer<'a>, window_size: &(f32, f32)) -> Self {
     let mut cam = RCamera::new_persp(60.0, 1.0, 1000.0);
     cam.position = [0.0, 0.0, 200.0];
 
-    Self {
+    Self{
       renderer: wgpu,
       shapes: vec![],
       frame: 0,
       camera: cam,
       screen_center: (window_size.0 / 2.0, window_size.1 / 2.0),
+      input_cache: InputCache::default(),
     }
   }
 
@@ -65,71 +86,43 @@ impl AppEventLoop<'_> {
     self.shapes.push(rect);
   }
 
-  // handle inputs
-  pub fn input(&mut self, event: &WindowEvent) -> bool {
-    match event {
-      WindowEvent::KeyboardInput { 
-        event: KeyEvent {
-          logical_key: key,
-          state,
-          ..
-        },
-        ..
-      } => {
-        match key.as_ref() {
-          // rotate camera
-          Key::Character("w") => {
-            if state == &ElementState::Pressed {
-              self.camera.position[2] -= 5.0;
-            }
-          }
-          Key::Character("s") => {
-            if state == &ElementState::Pressed {
-              self.camera.position[2] += 5.0;
-            }
-          }
-          Key::Character("a") => {
-            if state == &ElementState::Pressed {
-              self.camera.position[0] -= 5.0;
-            }
-          }
-          Key::Character("d") => {
-            if state == &ElementState::Pressed {
-              self.camera.position[0] += 5.0;
-            }
-          }
-          Key::Character("q") => {
-            if state == &ElementState::Pressed {
-              self.camera.position[1] += 5.0;
-            }
-          }
-          Key::Character("e") => {
-            if state == &ElementState::Pressed {
-              self.camera.position[1] -= 5.0;
-            }
-          }
-          Key::Character("r") => {
-            if state == &ElementState::Pressed {
-              println!("reset");
-              self.camera.position = [0.0, 0.0, 200.0];
-              self.camera.look_at = [0.0, 0.0, 0.0];
-            }
-          }
-          // catch all
-          _ => ()
-        };
-        true
+  // handle inputs (asynchronous with render loop)
+  pub fn input(&mut self, key: InputKey, state: InputState) {
+    match key {
+      InputKey::Up => { 
+        if state == InputState::Press { self.input_cache.move_y += 1 }
+        if state == InputState::Release { self.input_cache.move_y -= 1 }
       }
-      WindowEvent::CursorMoved { position:_, .. } => {
-        // to-do: mouse based camera rotation
-        true
-      },
-      _ => true,
+      InputKey::Down => {
+        if state == InputState::Press { self.input_cache.move_y += -1 }
+        if state == InputState::Release { self.input_cache.move_y -= -1 }
+      }
+      InputKey::Left => {
+        if state == InputState::Press { self.input_cache.move_x += -1 }
+        if state == InputState::Release { self.input_cache.move_x -= -1 }
+      }
+      InputKey::Right => {
+        if state == InputState::Press { self.input_cache.move_x += 1 }
+        if state == InputState::Release { self.input_cache.move_x -= 1 }
+      }
+      InputKey::Fwd => {
+        if state == InputState::Press { self.input_cache.move_z += -1 }
+        if state == InputState::Release { self.input_cache.move_z -= -1 }
+      }
+      InputKey::Bkwd => {
+        if state == InputState::Press { self.input_cache.move_z += 1 }
+        if state == InputState::Release { self.input_cache.move_z -= 1 }
+      }
     }
   }
 
-  // update logic
+  // update logic (synchronous with render loop)
   pub fn update(&mut self) {
+    // logic updates
+    self.camera.position[0] += self.input_cache.move_x as f32 * 5.0;
+    self.camera.position[1] += self.input_cache.move_y as f32 * 5.0;
+    self.camera.position[2] += self.input_cache.move_z as f32 * 5.0;
+    // render logic updates
     for obj in &mut self.shapes {
       if obj.id.0 == 1 {
         obj.position = [-self.screen_center.0 * 0.75, -self.screen_center.1 * 0.75, 0.0];
@@ -166,7 +159,7 @@ impl AppEventLoop<'_> {
       Ok(_) => Ok(()),
       // Reconfigure the surface if lost
       Err(wgpu::SurfaceError::Lost) => {
-        self.renderer.resize_canvas(self.renderer.size);
+        self.renderer.resize_canvas(self.renderer.config.width, self.renderer.config.height);
         self.update();
         Ok(())
       }
@@ -181,10 +174,10 @@ impl AppEventLoop<'_> {
   }
 
   // resize event
-  pub fn resize(&mut self, physical_size: PhysicalSize<u32>) {
-    self.renderer.resize_canvas(physical_size);
-    self.screen_center = (physical_size.width as f32 / 2.0, physical_size.height as f32 / 2.0);
-    self.renderer.update_texture_size(1, Some(1), physical_size.width, physical_size.height);
+  pub fn resize(&mut self, width: u32, height: u32) {
+    self.renderer.resize_canvas(width, height);
+    self.screen_center = (width as f32 / 2.0, height as f32 / 2.0);
+    self.renderer.update_texture_size(1, Some(1), width, height);
     self.update();
   }
 }

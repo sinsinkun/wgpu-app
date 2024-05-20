@@ -10,10 +10,11 @@ use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId, CursorGrabMode};
 
 mod wgpu_root;
+use wgpu_root::Renderer;
 mod primitives;
 mod lin_alg;
 mod app;
-use app::AppEventLoop;
+use app::{AppEventLoop, InputKey, InputState};
 
 // constants
 const WAIT_TIME: time::Duration = time::Duration::from_millis(1000);
@@ -69,36 +70,37 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 		self.window_size = window.inner_size().into();
 
 		// divert init actions to app container
-		let mut app_base = AppEventLoop::new(window.clone(), &self.window_size);
+		let wgpu = pollster::block_on(Renderer::new(window.clone()));
+		let mut app_base = AppEventLoop::new(wgpu, &self.window_size);
 		app_base.init();
 		self.app_event_loop = Some(app_base);
 	}
 
-	fn window_event(
-		&mut self,
-		_event_loop: &ActiveEventLoop,
-		_window_id: WindowId,
-		event: WindowEvent,
-	) {
-		// perform app input handling first
-		if let Some(app_base) = &mut self.app_event_loop {
-			app_base.input(&event);
-			self.request_redraw = true;
-		}
-		// window related input handling
+	fn window_event(&mut self, _event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {
 		match event {
 			WindowEvent::CloseRequested => {
 				self.close_requested = true;
 			}
-			WindowEvent::KeyboardInput {
-				event: KeyEvent {
-					logical_key: key,
-					state,
-					repeat,
-					..
-				},
-				..
-			} => {
+			WindowEvent::KeyboardInput { event: KeyEvent { logical_key: key, state, repeat, .. }, .. } => {
+				// perform app input handling first
+				let mut key_state = InputState::None;
+				if state == ElementState::Pressed && !repeat { key_state = InputState::Press }
+				else if repeat { key_state = InputState::Hold }
+				else if state == ElementState::Released { key_state = InputState::Release };
+
+				if let Some(app_base) = &mut self.app_event_loop {
+					match key.as_ref() {
+						Key::Character("w") => { app_base.input(InputKey::Up, key_state) }
+						Key::Character("s") => { app_base.input(InputKey::Down, key_state) }
+						Key::Character("a") => { app_base.input(InputKey::Left, key_state) }
+						Key::Character("d") => { app_base.input(InputKey::Right, key_state) }
+						Key::Character("q") => { app_base.input(InputKey::Fwd, key_state) }
+						Key::Character("e") => { app_base.input(InputKey::Bkwd, key_state) }
+						_ => ()
+					}
+					self.request_redraw = true;
+				}
+				// perform window related input handling
 				match key.as_ref() {
 					// WARNING: Consider using `key_without_modifiers()` if available on your platform.
 					// See the `key_binding` example
@@ -152,6 +154,18 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 					_ => ()
 				}
 			}
+			WindowEvent::CursorMoved { position:_, .. } => {
+				// todo: pass input onto app
+			}
+			WindowEvent::MouseInput { state:_, button:_, .. } => {
+				// todo: pass input onto app
+			}
+			WindowEvent::CursorEntered {..} => {
+				// todo
+			}
+			WindowEvent::CursorLeft {..} => {
+				// todo
+			}
 			WindowEvent::RedrawRequested => {
 				let window = self.window.as_ref().unwrap();
 				if let Some(app_base) = &mut self.app_event_loop {
@@ -166,7 +180,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 			}
 			WindowEvent::Resized(physical_size) => {
 				if let Some(app_base) = &mut self.app_event_loop {
-					app_base.resize(physical_size);
+					app_base.resize(physical_size.width, physical_size.height);
 					self.window_size = physical_size.into();
 				}
 			}
