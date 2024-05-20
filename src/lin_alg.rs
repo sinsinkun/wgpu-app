@@ -2,6 +2,11 @@
 
 pub const PI: f32 = 3.14159265;
 
+/**
+ * Note: These matrices are in column major order, as per wgpu requirements. 
+ * If you need to use them to perform regular matrix transformations,
+ * please transpose the result.
+ */
 pub struct Mat4;
 impl Mat4 {
   pub fn size_in_bytes() -> u32 { 4 * 4 * 4 * 3 }
