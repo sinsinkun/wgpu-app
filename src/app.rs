@@ -55,7 +55,6 @@ impl<'a> AppEventLoop<'a> {
   // initialize app objects
   pub fn init(&mut self) {
     // initialize pipeline
-    let shader = fs::read_to_string("assets/test.wgsl").unwrap();
     let texture1 = self.renderer.add_texture(10, 10, Some(Path::new("assets/test_uv_map.png")), false);
     let texture2 = self.renderer.add_texture(
       (self.screen_center.0 * 2.0) as u32,
@@ -64,7 +63,13 @@ impl<'a> AppEventLoop<'a> {
       true
     );
     let pipe1: RPipelineId = self.renderer.add_pipeline(None, 10, Some(texture1), None);
-    let pipe2: RPipelineId = self.renderer.add_pipeline(Some(&shader), 1, Some(texture2), None);
+    let pipe2: RPipelineId = match fs::read_to_string("assets/test.wgsl") {
+      Ok(str) => { self.renderer.add_pipeline(Some(&str), 1, Some(texture2), None) }
+      Err(..) => {
+        println!("Could not find shader");
+        self.renderer.add_pipeline(None, 1, Some(texture2), None)
+      }
+    };
 
     let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
     let cube_data2 = Primitives::cube(20.0, 20.0, 60.0);
