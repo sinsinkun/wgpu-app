@@ -43,7 +43,7 @@ pub struct RPipeline {
   // bind_group3: Option<RBindGroup>,
 }
 
-pub type RObjectId = usize;
+pub type RObjectId = (usize, usize);
 pub type RPipelineId = usize;
 pub type RTextureId = usize;
 
@@ -606,8 +606,7 @@ impl<'a> Renderer<'a> {
     };
     pipe.objects.push(obj);
     self.update_object(
-      pipeline_id,
-      id,
+      (pipeline_id, id),
       &[0.0, 0.0, 0.0],
       &[0.0, 0.0, 1.0],
       0.0,
@@ -615,12 +614,11 @@ impl<'a> Renderer<'a> {
       true,
       None,
     );
-    id
+    (pipeline_id, id)
   }
 
   pub fn update_object(
     &mut self,
-    pipeline_id: RPipelineId,
     object_id: RObjectId,
     translate: &[f32; 3],
     rotate_axis: &[f32; 3],
@@ -629,8 +627,8 @@ impl<'a> Renderer<'a> {
     visible: bool,
     camera: Option<&RCamera>,
   ) {
-    let pipe = &mut self.pipelines[pipeline_id];
-    let obj = &mut pipe.objects[object_id];
+    let pipe = &mut self.pipelines[object_id.0];
+    let obj = &mut pipe.objects[object_id.1];
     let cam = match camera {
       Some(c) => c,
       None => &self.default_cam
@@ -668,16 +666,57 @@ impl<'a> Renderer<'a> {
     );
   }
 
-  pub fn render(&mut self, pipeline_ids: &[usize], target_id: Option<usize>) -> Result<(), wgpu::SurfaceError> {
+  pub fn render_texture(&mut self, pipeline_ids: &[usize], target_id: usize) {
+    let view = self.msaa.create_view(&TextureViewDescriptor::default());
+    let tx = &self.textures[target_id];
+    let target = tx.create_view(&TextureViewDescriptor::default());
+    let zbuffer_view = self.zbuffer.create_view(&TextureViewDescriptor::default());
+    let mut encoder = self.device.create_command_encoder(
+      &wgpu::CommandEncoderDescriptor { label: Some("render-encoder") }
+    );
+    {
+      // new context so ownership of encoder is released after pass finishes
+      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+        label: Some("render-pass"),
+        color_attachments: &[Some(RenderPassColorAttachment {
+          view: &view,
+          resolve_target: Some(&target),
+          ops: Operations {
+            load: LoadOp::Clear(self.clear_color),
+            store: StoreOp::Store,
+          },
+        })],
+        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+          view: &zbuffer_view,
+          depth_ops: Some(Operations {
+            load: LoadOp::Clear(1.0),
+            store: StoreOp::Store
+          }),
+          stencil_ops: None,
+        }),
+        occlusion_query_set: None,
+        timestamp_writes: None,
+      });
+      // add objects to render
+      for p_id in pipeline_ids {
+        let pipeline = &self.pipelines[*p_id];
+        for obj in &pipeline.objects {
+          if !obj.visible { continue; }
+          let stride = self.limits.min_uniform_buffer_offset_alignment * obj.pipe_index as u32;
+          pass.set_pipeline(&pipeline.pipe);
+          pass.set_vertex_buffer(0, obj.v_buffer.slice(..));
+          pass.set_bind_group(0, &pipeline.bind_group0.base, &[stride]);
+          pass.draw(0..(obj.v_count as u32), 0..1);
+        }
+      }
+    }
+    self.queue.submit(std::iter::once(encoder.finish()));
+  }
+
+  pub fn render(&mut self, pipeline_ids: &[usize]) -> Result<(), wgpu::SurfaceError> {
     let output = self.surface.get_current_texture()?;
     let view = self.msaa.create_view(&TextureViewDescriptor::default());
-    let target = match target_id {
-      Some(id) => {
-        let tx = &self.textures[id];
-        tx.create_view(&TextureViewDescriptor::default())
-      },
-      None => output.texture.create_view(&TextureViewDescriptor::default())
-    };
+    let target = output.texture.create_view(&TextureViewDescriptor::default());
     let zbuffer_view = self.zbuffer.create_view(&TextureViewDescriptor::default());
     let mut encoder = self.device.create_command_encoder(
       &wgpu::CommandEncoderDescriptor { label: Some("render-encoder") }

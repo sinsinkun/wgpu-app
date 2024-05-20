@@ -131,11 +131,10 @@ impl AppEventLoop<'_> {
   // update logic
   pub fn update(&mut self) {
     for obj in &mut self.shapes {
-      if obj.pipe_id == 1 {
+      if obj.id.0 == 1 {
         obj.position = [-self.screen_center.0 * 0.75, -self.screen_center.1 * 0.75, 0.0];
         obj.scale = [self.screen_center.0, self.screen_center.1, 1.0];
         self.renderer.update_object(
-          obj.pipe_id,
           obj.id,
           &obj.position,
           &obj.rotate_axis,
@@ -147,7 +146,6 @@ impl AppEventLoop<'_> {
       } else {
         obj.rotate_deg = self.frame as f32;
         self.renderer.update_object(
-          obj.pipe_id,
           obj.id,
           &obj.position,
           &obj.rotate_axis,
@@ -163,8 +161,8 @@ impl AppEventLoop<'_> {
   // call render
   pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
     self.frame += 1;
-    let _ = self.renderer.render(&[0], Some(1));
-    match self.renderer.render(&[0, 1], None) {
+    self.renderer.render_texture(&[0], 1);
+    match self.renderer.render(&[0, 1]) {
       Ok(_) => Ok(()),
       // Reconfigure the surface if lost
       Err(wgpu::SurfaceError::Lost) => {
@@ -176,7 +174,7 @@ impl AppEventLoop<'_> {
       Err(wgpu::SurfaceError::OutOfMemory) => Err(wgpu::SurfaceError::OutOfMemory),
       // All other errors (Outdated, Timeout) should be resolved by the next frame
       Err(e) => {
-        eprintln!("{:?}", e);
+        eprintln!("Render error: {:?}", e);
         Ok(())
       }
     }

@@ -4,8 +4,7 @@ use crate::wgpu_root::{Renderer, RVertex};
 use crate::lin_alg::PI;
 
 pub struct Shape {
-  pub id: usize,
-  pub pipe_id: usize,
+  pub id: (usize, usize),
   pub position: [f32; 3],
   pub rotate_axis: [f32; 3],
   pub rotate_deg: f32,
@@ -17,7 +16,6 @@ impl Shape {
     let id = renderer.add_object(pipe_id, vertex_data);
     Self {
       id,
-      pipe_id,
       position: [0.0, 0.0, 0.0],
       rotate_axis: [0.0, 0.0, 1.0],
       rotate_deg: 0.0,
