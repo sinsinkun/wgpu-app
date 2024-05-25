@@ -128,10 +128,6 @@ impl<'a> AppEventLoop<'a> {
   // update logic (synchronous with render loop)
   pub fn update(&mut self) {
     // logic updates
-    self.last_frame_time = self.new_frame_time;
-    self.new_frame_time = time::Instant::now();
-    // let delta_t = self.new_frame_time - self.last_frame_time;
-    // println!("delta t: {:?}", delta_t.as_secs_f32());
 
     self.camera.position[0] += self.input_cache.move_x as f32 * 5.0;
     self.camera.position[1] += self.input_cache.move_y as f32 * 5.0;
@@ -168,6 +164,11 @@ impl<'a> AppEventLoop<'a> {
   // call render
   pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
     self.frame += 1;
+    self.last_frame_time = self.new_frame_time;
+    self.new_frame_time = time::Instant::now();
+    // let delta_t = self.new_frame_time - self.last_frame_time;
+    // println!("delta t: {:?}", delta_t.as_secs_f32());
+
     self.renderer.render_texture(&[0], 1);
     match self.renderer.render(&[0, 1]) {
       Ok(_) => Ok(()),
