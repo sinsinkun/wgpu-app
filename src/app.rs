@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fs, time, path::Path};
 
 use crate::wgpu_root::{RCamera, RPipelineId, Renderer};
 use crate::primitives::{Primitives, Shape};
@@ -31,6 +31,8 @@ impl Default for InputCache {
 pub struct AppEventLoop<'a> {
   renderer: Renderer<'a>,
   frame: u32, // max value: ~4,295,000,000
+  last_frame_time: time::Instant,
+  new_frame_time: time::Instant,
   shapes: Vec<Shape>,
   camera: RCamera,
   screen_center: (f32, f32),
@@ -46,6 +48,8 @@ impl<'a> AppEventLoop<'a> {
       renderer: wgpu,
       shapes: vec![],
       frame: 0,
+      last_frame_time: time::Instant::now(),
+      new_frame_time: time::Instant::now(),
       camera: cam,
       screen_center: (window_size.0 / 2.0, window_size.1 / 2.0),
       input_cache: InputCache::default(),
@@ -66,7 +70,7 @@ impl<'a> AppEventLoop<'a> {
     let pipe2: RPipelineId = match fs::read_to_string("assets/test.wgsl") {
       Ok(str) => { self.renderer.add_pipeline(Some(&str), 1, Some(texture2), None) }
       Err(..) => {
-        println!("Could not find shader");
+        println!("Err: Could not find shader");
         self.renderer.add_pipeline(None, 1, Some(texture2), None)
       }
     };
@@ -124,6 +128,11 @@ impl<'a> AppEventLoop<'a> {
   // update logic (synchronous with render loop)
   pub fn update(&mut self) {
     // logic updates
+    self.last_frame_time = self.new_frame_time;
+    self.new_frame_time = time::Instant::now();
+    // let delta_t = self.new_frame_time - self.last_frame_time;
+    // println!("delta t: {:?}", delta_t.as_secs_f32());
+
     self.camera.position[0] += self.input_cache.move_x as f32 * 5.0;
     self.camera.position[1] += self.input_cache.move_y as f32 * 5.0;
     self.camera.position[2] += self.input_cache.move_z as f32 * 5.0;

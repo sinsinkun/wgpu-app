@@ -18,7 +18,7 @@ use app::{AppEventLoop, InputKey, InputState};
 
 // constants
 const WAIT_TIME: time::Duration = time::Duration::from_millis(1000);
-const POLL_SLEEP_TIME: time::Duration = time::Duration::from_millis(10);
+const POLL_SLEEP_TIME: time::Duration = time::Duration::from_millis(5);
 
 // definitions for winit window
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -141,11 +141,11 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 								println!("lock cursor");
 								win.set_cursor_grab(CursorGrabMode::Confined).unwrap();
 								win.set_cursor_position(PhysicalPosition{ x, y }).unwrap();
-								win.set_cursor_visible(false);
+								// win.set_cursor_visible(false);
 							} else if state == ElementState::Released {
 								println!("unlock cursor");
 								win.set_cursor_grab(CursorGrabMode::None).unwrap();
-								win.set_cursor_visible(true);
+								// win.set_cursor_visible(true);
 							} else {
 								win.set_cursor_position(PhysicalPosition{ x, y }).unwrap();
 							}
