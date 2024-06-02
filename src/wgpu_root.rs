@@ -29,7 +29,7 @@ pub struct RPipelineSetup<'a> {
   pub cull_mode: RCullMode,
   pub vertex_fn: &'a str,
   pub fragment_fn: &'a str,
-  pub uniforms: Vec<RUniformSetup>,
+  // pub uniforms: Vec<RUniformSetup>,
 }
 impl Default for RPipelineSetup<'_> {
   fn default() -> Self {
@@ -40,7 +40,7 @@ impl Default for RPipelineSetup<'_> {
         cull_mode: RCullMode::None,
         vertex_fn: "vertexMain",
         fragment_fn: "fragmentMain",
-        uniforms: Vec::new(),
+        // uniforms: Vec::new(),
       }
   }
 }
@@ -469,7 +469,7 @@ impl<'a> Renderer<'a> {
       label: Some("shader-module"),
       source: ShaderSource::Wgsl(setup.shader.into()),
     });
-    let bind_group_layout = self.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+    let bind_group0_layout = self.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       label: Some("bind-group-layout"),
       entries: &[
         // mvp matrix
@@ -505,7 +505,7 @@ impl<'a> Renderer<'a> {
     });
     let pipeline_layout = self.device.create_pipeline_layout(&PipelineLayoutDescriptor {
       label: Some("pipeline-layout"),
-      bind_group_layouts: &[&bind_group_layout],
+      bind_group_layouts: &[&bind_group0_layout],
       push_constant_ranges: &[]
     });
     let pipeline = self.device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -644,9 +644,41 @@ impl<'a> Renderer<'a> {
       entries: vec![mvp_buffer]
     }
   }
+  #[cfg(never)] // unused method
+  fn add_bind_group1(&self, pipeline: &RenderPipeline, max_obj_count: usize, uniforms: Vec<RUniformSetup>) -> RBindGroup {
+    let min_stride = self.limits.min_uniform_buffer_offset_alignment;
+    let mut bind_entries: Vec<Buffer> = Vec::new();
+    let mut bind_desc: Vec<BindGroupEntry> = Vec::new();
+    for i in 0..uniforms.len() {
+      let size = min_stride * max_obj_count as u32;
+      let label = "custom-uniform".to_owned() + &i.to_string();
+      let entry = self.device.create_buffer(&BufferDescriptor { 
+        label: Some(&label),
+        size: size as u64,
+        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        mapped_at_creation: false 
+      });
+      bind_entries.push(entry);
+    }
+    for (i, u) in uniforms.iter().enumerate() {
+      let desc = BindGroupEntry {
+        binding: i as u32,
+        resource: BindingResource::Buffer(BufferBinding {
+          buffer: &bind_entries[i], offset: 0, size: NonZeroU64::new(u.size_in_bytes as u64)
+        })
+      };
+      bind_desc.push(desc);
+    }
+    let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+      label: Some("bind-group-1"),
+      layout: &pipeline.get_bind_group_layout(1),
+      entries: &bind_desc
+    });
 
-  fn add_bind_group1(&self) {
-    todo!("custom bind uniforms in group 1")
+    return RBindGroup {
+      base: bind_group,
+      entries: bind_entries
+    }
   }
 
   pub fn add_object(&mut self, pipeline_id: RPipelineId, v_data: Vec<RVertex>) -> RObjectId {
