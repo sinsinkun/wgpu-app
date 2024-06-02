@@ -151,25 +151,10 @@ impl<'a> AppEventLoop<'a> {
       if obj.id.0 == 1 {
         obj.position = [-self.screen_center.0 * 0.75, -self.screen_center.1 * 0.75, 0.0];
         obj.scale = [self.screen_center.0, self.screen_center.1, 1.0];
-        self.renderer.update_object(RObjectUpdate {
-          object_id: obj.id,
-          translate: &obj.position,
-          rotate_axis: &obj.rotate_axis,
-          rotate_deg: obj.rotate_deg,
-          scale: &obj.scale,
-          ..Default::default()
-        });
+        self.renderer.update_object(RObjectUpdate::from_shape(obj, None));
       } else {
         obj.rotate_deg = self.frame as f32;
-        self.renderer.update_object(RObjectUpdate {
-          object_id: obj.id,
-          translate: &obj.position,
-          rotate_axis: &obj.rotate_axis,
-          rotate_deg: obj.rotate_deg,
-          scale: &obj.scale,
-          camera: Some(&self.camera),
-          ..Default::default()
-        });
+        self.renderer.update_object(RObjectUpdate::from_shape(obj, Some(&self.camera)));
       }
     }
   }

@@ -8,6 +8,7 @@ use image::{io::Reader as ImageReader, DynamicImage, GenericImageView};
 use wgpu::*;
 use bytemuck::{Pod, Zeroable};
 use crate::lin_alg::Mat4;
+use crate::primitives::Shape;
 
 // -- FUNCTION INPUT STRUCTS --
 #[derive(Debug)]
@@ -64,6 +65,19 @@ impl Default for RObjectUpdate<'_> {
       scale: &[1.0, 1.0, 1.0],
       visible: true,
       camera: None,
+    }
+  }
+}
+impl<'a> RObjectUpdate<'a> {
+  pub fn from_shape(shape: &'a Shape, camera: Option<&'a RCamera>) -> Self {
+    RObjectUpdate {
+      object_id: shape.id,
+      translate: &shape.position,
+      rotate_axis: &shape.rotate_axis,
+      rotate_deg: shape.rotate_deg,
+      scale: &shape.scale,
+      visible: true,
+      camera,
     }
   }
 }
