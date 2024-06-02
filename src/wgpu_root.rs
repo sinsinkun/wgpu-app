@@ -9,6 +9,65 @@ use wgpu::*;
 use bytemuck::{Pod, Zeroable};
 use crate::lin_alg::Mat4;
 
+// -- FUNCTION INPUT STRUCTS --
+#[derive(Debug)]
+pub enum RUniformVisibility { Vertex, Fragment, Both }
+#[derive(Debug)]
+pub struct RUniformSetup {
+  pub bind_slot: u32,
+  pub visibility: RUniformVisibility,
+  pub size_in_bytes: u32,
+}
+#[derive(Debug)]
+pub enum RCullMode { None, Front, Back }
+#[derive(Debug)]
+pub struct RPipelineSetup<'a> {
+  pub shader: &'a str,
+  pub max_obj_count: usize,
+  pub texture_id: Option<usize>,
+  pub cull_mode: RCullMode,
+  pub vertex_fn: &'a str,
+  pub fragment_fn: &'a str,
+  pub uniforms: Vec<RUniformSetup>,
+}
+impl Default for RPipelineSetup<'_> {
+  fn default() -> Self {
+      RPipelineSetup {
+        shader: include_str!("base.wgsl"),
+        max_obj_count: 10,
+        texture_id: None,
+        cull_mode: RCullMode::None,
+        vertex_fn: "vertexMain",
+        fragment_fn: "fragmentMain",
+        uniforms: Vec::new(),
+      }
+  }
+}
+
+#[derive(Debug)]
+pub struct RObjectUpdate<'a> {
+  pub object_id: RObjectId,
+  pub translate: &'a [f32; 3],
+  pub rotate_axis: &'a [f32; 3],
+  pub rotate_deg: f32,
+  pub scale: &'a [f32; 3],
+  pub visible: bool,
+  pub camera: Option<&'a RCamera>,
+}
+impl Default for RObjectUpdate<'_> {
+  fn default() -> Self {
+    RObjectUpdate {
+      object_id: (0, 0),
+      translate: &[0.0, 0.0, 0.0],
+      rotate_axis: &[0.0, 0.0, 1.0],
+      rotate_deg: 0.0,
+      scale: &[1.0, 1.0, 1.0],
+      visible: true,
+      camera: None,
+    }
+  }
+}
+
 // -- HELPER STRUCTS --
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -374,35 +433,27 @@ impl<'a> Renderer<'a> {
       let new_bind_id = {
         let pipeline = &self.pipelines[p_id];
         let pipe = &pipeline.pipe;
-        self.add_bind_group(pipe, pipeline.max_obj_count, Some(texture_id))
+        self.add_bind_group0(pipe, pipeline.max_obj_count, Some(texture_id))
       };
       let pipeline = &mut self.pipelines[p_id];
       pipeline.bind_group0 = new_bind_id;
     }
   }
 
-  pub fn add_pipeline(
-    &mut self,
-    shader: Option<&str>,
-    max_obj_count: usize,
-    texture_id: Option<usize>,
-    cull_mode: Option<Face>,
-  ) -> RPipelineId {
+  pub fn add_pipeline(&mut self, setup: RPipelineSetup) -> RPipelineId {
     let id: usize = self.pipelines.len();
-    let shader_src: ShaderSource;
 
-    // get shader data
-    if let Some(shader_data) = shader {
-      shader_src = ShaderSource::Wgsl(shader_data.into());
-    } else {
-      println!("WARN: No shader provided, loading default");
-      shader_src = ShaderSource::Wgsl(include_str!("base.wgsl").into());
-    }
+    // translate cullmode
+    let cull_mode: Option<Face> = match setup.cull_mode {
+      RCullMode::None => None,
+      RCullMode::Back => Some(Face::Back),
+      RCullMode::Front => Some(Face::Front)
+    };
 
     // build render pipeline
     let shader_mod = self.device.create_shader_module(ShaderModuleDescriptor {
       label: Some("shader-module"),
-      source: shader_src,
+      source: ShaderSource::Wgsl(setup.shader.into()),
     });
     let bind_group_layout = self.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       label: Some("bind-group-layout"),
@@ -448,7 +499,7 @@ impl<'a> Renderer<'a> {
       layout: Some(&pipeline_layout),
       vertex: VertexState {
         module: &shader_mod,
-        entry_point: "vertexMain",
+        entry_point: setup.vertex_fn,
         buffers: &[VertexBufferLayout {
           array_stride: std::mem::size_of::<RVertex>() as BufferAddress,
           step_mode: VertexStepMode::Vertex,
@@ -458,7 +509,7 @@ impl<'a> Renderer<'a> {
       },
       fragment: Some(FragmentState{
         module: &shader_mod,
-        entry_point: "fragmentMain",
+        entry_point: setup.fragment_fn,
         targets: &[Some(ColorTargetState{
           format: self.surface_format,
           blend: Some(BlendState { 
@@ -497,19 +548,19 @@ impl<'a> Renderer<'a> {
     });
 
     // build bind group
-    let bind_group: RBindGroup = self.add_bind_group(&pipeline, max_obj_count, texture_id);
+    let bind_group0: RBindGroup = self.add_bind_group0(&pipeline, setup.max_obj_count, setup.texture_id);
     // add to cache
     let pipe = RPipeline {
       pipe: pipeline,
       objects: Vec::new(),
-      max_obj_count,
-      bind_group0: bind_group,
+      max_obj_count: setup.max_obj_count,
+      bind_group0,
     };
     self.pipelines.push(pipe);
     id
   }
 
-  fn add_bind_group(&self, pipeline: &RenderPipeline, max_obj_count: usize, texture_id: Option<usize>) -> RBindGroup {
+  fn add_bind_group0(&self, pipeline: &RenderPipeline, max_obj_count: usize, texture_id: Option<usize>) -> RBindGroup {
     let min_stride = self.limits.min_uniform_buffer_offset_alignment;
     // create mvp buffer
     let mvp_buffer = self.device.create_buffer(&BufferDescriptor {
@@ -580,6 +631,10 @@ impl<'a> Renderer<'a> {
     }
   }
 
+  fn add_bind_group1(&self) {
+    todo!("custom bind uniforms in group 1")
+  }
+
   pub fn add_object(&mut self, pipeline_id: RPipelineId, v_data: Vec<RVertex>) -> RObjectId {
     let pipe = &mut self.pipelines[pipeline_id];
     let id = pipe.objects.len();
@@ -602,40 +657,23 @@ impl<'a> Renderer<'a> {
       pipe_index: id
     };
     pipe.objects.push(obj);
-    self.update_object(
-      (pipeline_id, id),
-      &[0.0, 0.0, 0.0],
-      &[0.0, 0.0, 1.0],
-      0.0,
-      &[1.0, 1.0, 1.0],
-      true,
-      None,
-    );
+    self.update_object(RObjectUpdate{ object_id: (pipeline_id, id), ..Default::default()});
     (pipeline_id, id)
   }
 
-  pub fn update_object(
-    &mut self,
-    object_id: RObjectId,
-    translate: &[f32; 3],
-    rotate_axis: &[f32; 3],
-    rotate_deg: f32,
-    scale: &[f32; 3],
-    visible: bool,
-    camera: Option<&RCamera>,
-  ) {
-    let pipe = &mut self.pipelines[object_id.0];
-    let obj = &mut pipe.objects[object_id.1];
-    let cam = match camera {
+  pub fn update_object(&mut self, update: RObjectUpdate) {
+    let pipe = &mut self.pipelines[update.object_id.0];
+    let obj = &mut pipe.objects[update.object_id.1];
+    let cam = match update.camera {
       Some(c) => c,
       None => &self.default_cam
     };
 
-    obj.visible = visible;
+    obj.visible = update.visible;
     // model matrix
-    let model_t = Mat4::translate(translate[0], translate[1], translate[2]);
-    let model_r = Mat4::rotate(rotate_axis, rotate_deg);
-    let model_s = Mat4::scale(scale[0], scale[1], scale[2]);
+    let model_t = Mat4::translate(update.translate[0], update.translate[1], update.translate[2]);
+    let model_r = Mat4::rotate(&update.rotate_axis, update.rotate_deg);
+    let model_s = Mat4::scale(update.scale[0], update.scale[1], update.scale[2]);
     let model = Mat4::multiply(&model_t, &Mat4::multiply(&model_s, &model_r));
     // view matrix
     let view_t = Mat4::translate(-cam.position[0], -cam.position[1], -cam.position[2]);

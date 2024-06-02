@@ -1,6 +1,6 @@
 use std::{fs, time, path::Path};
 
-use crate::wgpu_root::{RCamera, RPipelineId, Renderer};
+use crate::wgpu_root::{RCamera, RPipelineId, Renderer, RPipelineSetup, RObjectUpdate};
 use crate::primitives::{Primitives, Shape};
 
 // input handling helper
@@ -66,12 +66,26 @@ impl<'a> AppEventLoop<'a> {
       None,
       true
     );
-    let pipe1: RPipelineId = self.renderer.add_pipeline(None, 10, Some(texture1), None);
+    let pipe1: RPipelineId = self.renderer.add_pipeline(RPipelineSetup {
+      texture_id: Some(texture1),
+      ..Default::default()
+    });
     let pipe2: RPipelineId = match fs::read_to_string("assets/test.wgsl") {
-      Ok(str) => { self.renderer.add_pipeline(Some(&str), 1, Some(texture2), None) }
+      Ok(str) => { 
+        self.renderer.add_pipeline(RPipelineSetup {
+          shader: &str,
+          max_obj_count: 1,
+          texture_id: Some(texture2),
+          ..Default::default()
+        })
+      }
       Err(..) => {
         println!("Err: Could not find shader");
-        self.renderer.add_pipeline(None, 1, Some(texture2), None)
+        self.renderer.add_pipeline(RPipelineSetup {
+          max_obj_count: 1, 
+          texture_id: Some(texture2),
+          ..Default::default()
+        })
       }
     };
 
@@ -137,26 +151,25 @@ impl<'a> AppEventLoop<'a> {
       if obj.id.0 == 1 {
         obj.position = [-self.screen_center.0 * 0.75, -self.screen_center.1 * 0.75, 0.0];
         obj.scale = [self.screen_center.0, self.screen_center.1, 1.0];
-        self.renderer.update_object(
-          obj.id,
-          &obj.position,
-          &obj.rotate_axis,
-          obj.rotate_deg,
-          &obj.scale,
-          true,
-          None,
-        );
+        self.renderer.update_object(RObjectUpdate {
+          object_id: obj.id,
+          translate: &obj.position,
+          rotate_axis: &obj.rotate_axis,
+          rotate_deg: obj.rotate_deg,
+          scale: &obj.scale,
+          ..Default::default()
+        });
       } else {
         obj.rotate_deg = self.frame as f32;
-        self.renderer.update_object(
-          obj.id,
-          &obj.position,
-          &obj.rotate_axis,
-          obj.rotate_deg,
-          &obj.scale,
-          true,
-          Some(&self.camera)
-        );
+        self.renderer.update_object(RObjectUpdate {
+          object_id: obj.id,
+          translate: &obj.position,
+          rotate_axis: &obj.rotate_axis,
+          rotate_deg: obj.rotate_deg,
+          scale: &obj.scale,
+          camera: Some(&self.camera),
+          ..Default::default()
+        });
       }
     }
   }
