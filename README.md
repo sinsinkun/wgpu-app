@@ -22,6 +22,9 @@ Rust version: 1.76.0
 `cargo build`/`cargo run`
 
 ### To-do:
+- Render text
+- Forward render lighting pass
+- Shadow rendering
 - More primitives
 - Physics
 - Audio

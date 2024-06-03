@@ -11,6 +11,7 @@ use winit::window::{Window, WindowId, CursorGrabMode};
 
 mod wgpu_root;
 use wgpu_root::Renderer;
+mod wgpu_text;
 mod primitives;
 mod lin_alg;
 mod app;
