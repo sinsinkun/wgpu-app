@@ -9,6 +9,7 @@ use wgpu::*;
 use bytemuck::{Pod, Zeroable};
 use crate::lin_alg::Mat4;
 use crate::primitives::Shape;
+use crate::wgpu_text::{draw_glyph_texture, load_new_glyph};
 
 // -- FUNCTION INPUT STRUCTS --
 #[derive(Debug)]
@@ -324,6 +325,13 @@ impl<'a> Renderer<'a> {
     }
   }
 
+  pub fn set_clear_color(&mut self, r: f64, g: f64, b:f64, a:f64) {
+    self.clear_color.r = r;
+    self.clear_color.g = g;
+    self.clear_color.b = b;
+    self.clear_color.a = a;
+  }
+
   pub fn add_texture(&mut self, width: u32, height: u32, texture_path: Option<&Path>, use_device_format: bool) -> RTextureId {
     let id = self.textures.len();
     let mut texture_size = Extent3d { width, height, depth_or_array_layers: 1 };
@@ -422,6 +430,12 @@ impl<'a> Renderer<'a> {
         eprintln!("Err: Could not open image file");
       }
     }
+  }
+
+  pub fn draw_text_on_texture(&mut self, texture_id: usize) {
+    let texture = &mut self.textures[texture_id];
+    let glyph = load_new_glyph('a', [255, 100, 100]).unwrap();
+    draw_glyph_texture(&self.queue, texture, glyph);
   }
 
   pub fn update_texture_size(&mut self, texture_id: usize, pipeline_id: Option<usize>, width: u32, height: u32) {

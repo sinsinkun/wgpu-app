@@ -167,7 +167,10 @@ impl<'a> AppEventLoop<'a> {
     // let delta_t = self.new_frame_time - self.last_frame_time;
     // println!("delta t: {:?}", delta_t.as_secs_f32());
 
+    self.renderer.set_clear_color(0.0, 0.0, 0.0, 0.0);
     self.renderer.render_texture(&[0], 1);
+    self.renderer.draw_text_on_texture(1);
+    self.renderer.set_clear_color(0.01, 0.01, 0.02, 1.0);
     match self.renderer.render(&[0, 1]) {
       Ok(_) => Ok(()),
       // Reconfigure the surface if lost

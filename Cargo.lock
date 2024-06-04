@@ -2521,6 +2521,7 @@ dependencies = [
 name = "wgpu-rs-test"
 version = "0.1.0"
 dependencies = [
+ "ab_glyph",
  "bytemuck",
  "env_logger",
  "image",
