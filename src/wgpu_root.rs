@@ -10,6 +10,7 @@ use bytemuck::{Pod, Zeroable};
 use crate::lin_alg::Mat4;
 use crate::primitives::Shape;
 use crate::wgpu_text::{draw_str, RStringInputs};
+use crate::primitives::Primitives;
 
 // -- FUNCTION INPUT STRUCTS --
 #[derive(Debug)]
@@ -117,6 +118,16 @@ pub struct RPipeline {
   // bind_group3: Option<RBindGroup>,
 }
 
+#[derive(Debug)]
+pub struct RTextPipeline {
+  pipe: wgpu::RenderPipeline,
+  objects: Vec<RObject>,
+  max_obj_count: usize,
+  bind_group0: RBindGroup,
+  font_data: Vec<u8>,
+  output: wgpu::Texture,
+}
+
 pub type RObjectId = (usize, usize);
 pub type RPipelineId = usize;
 pub type RTextureId = usize;
@@ -178,7 +189,8 @@ pub struct Renderer<'a> {
   pub default_cam: RCamera,
   pub clear_color: wgpu::Color,
   pub pipelines: Vec<RPipeline>,
-  pub textures: Vec<wgpu::Texture>
+  pub textures: Vec<wgpu::Texture>,
+  font_cache: Option<Vec<u8>>,
 }
 
 impl<'a> Renderer<'a> {
@@ -279,7 +291,8 @@ impl<'a> Renderer<'a> {
       zbuffer,
       limits: Limits::default(),
       clear_color: Color { r: 0.01, g: 0.01, b: 0.02, a: 1.0 },
-      default_cam
+      default_cam,
+      font_cache: None,
     };
   }
 
@@ -689,6 +702,22 @@ impl<'a> Renderer<'a> {
     }
   }
 
+  pub fn add_text_pipeline(&mut self) -> (RTextureId, RPipelineId) {
+    // build full screen texture
+    let texture_id = self.add_texture(self.config.width, self.config.height, None, true);
+    // build render pipeline
+    let pipeline_id = self.add_pipeline(RPipelineSetup {
+      shader: include_str!("text.wgsl"),
+      texture_id: Some(texture_id),
+      ..Default::default()
+    });
+    // build object
+    let rect_data = Primitives::rect(2.0, 2.0, 0.0);
+    let _rect = Shape::new(self, pipeline_id, rect_data);
+    // output fields
+    (texture_id, pipeline_id)
+  }
+
   pub fn add_object(&mut self, pipeline_id: RPipelineId, v_data: Vec<RVertex>) -> RObjectId {
     let pipe = &mut self.pipelines[pipeline_id];
     let id = pipe.objects.len();
@@ -737,7 +766,7 @@ impl<'a> Renderer<'a> {
     let w2 = (self.config.width / 2) as f32;
     let h2 = (self.config.height / 2) as f32;
     let proj = match cam.cam_type {
-      CameraType::Orthographic => Mat4::ortho(-w2, w2, -h2, h2, cam.near, cam.far),
+      CameraType::Orthographic => Mat4::ortho(-w2, w2, h2, -h2, cam.near, cam.far),
       CameraType::Perspective => Mat4::perspective(cam.fov_y, w2/h2, cam.near, cam.far)
     };
     // merge together
@@ -804,16 +833,28 @@ impl<'a> Renderer<'a> {
 
   pub fn render_str_on_texture(&mut self, texture_id: usize, input: &str, size:f32, color: [u8; 3], top_left: [u32; 2]) {
     let texture = &mut self.textures[texture_id];
-    let font_raw = fs::read("assets/roboto.ttf").unwrap();
-    let _ = draw_str(RStringInputs {
+    // fetch font data
+    if self.font_cache.is_none() {
+      let f = fs::read("assets/roboto.ttf").unwrap();
+      self.font_cache = Some(f);
+    }
+    let font_data = self.font_cache.as_ref().unwrap();
+    // draw string onto existing texture
+    match draw_str(RStringInputs {
       queue: &self.queue,
       texture,
-      font_data: &font_raw,
+      font_data,
       string: input,
       size,
       color,
       top_left,
-    });
+      char_gap: 3,
+    }) {
+      Ok(()) => (),
+      Err(e) => {
+        println!("Could not draw str: {:?}", e);
+      }
+    };
   }
 
   pub fn render(&mut self, pipeline_ids: &[usize]) -> Result<(), wgpu::SurfaceError> {

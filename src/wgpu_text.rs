@@ -2,7 +2,7 @@
 
 use ab_glyph::{Font, FontRef, Glyph, Rect};
 use image::{RgbaImage, Rgba};
-use wgpu::{Extent3d, ImageCopyTexture, Queue, Texture, Origin3d, TextureAspect, ImageDataLayout};
+use wgpu::{Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, Queue, Texture, TextureAspect, TextureFormat};
 
 #[derive(Debug, PartialEq)]
 pub enum TextError {
@@ -20,6 +20,7 @@ pub struct RStringInputs<'a> {
   pub size: f32,
   pub color: [u8; 3],
   pub top_left: [u32; 2],
+  pub char_gap: u32,
 }
 
 // create image of glyph to append onto texture
@@ -57,7 +58,7 @@ pub fn load_new_glyph(c: char, color: [u8; 3]) -> Result<RgbaImage, TextError> {
 // same as load_new_glyph but with cached font data
 pub fn load_cached_glyph(font_raw: &Vec<u8>, c: char, size: f32, color: [u8; 3]) -> Result<RgbaImage, TextError> {
   let font = FontRef::try_from_slice(font_raw).map_err(|_| TextError::FileLoadError)?;
-  let glyph: Glyph = font.glyph_id(c).with_scale(size * 10.0);
+  let glyph: Glyph = font.glyph_id(c).with_scale(size);
 
   if let Some(ch) = font.outline_glyph(glyph) {
     // define image bounds
@@ -122,25 +123,56 @@ pub fn draw_glyph_on_texture(queue: &Queue, texture: &mut Texture, glyph: RgbaIm
   Ok(())
 }
 
+// clear residual glyphs
+pub fn clear_prev_str(queue: &Queue, texture: &mut Texture, top_left: [u32; 2], bottom_right: [u32; 2]) {
+  let minx = top_left[0];
+  let miny = top_left[1];
+  let maxx = bottom_right[0] - top_left[0];
+  let maxy = bottom_right[1] - top_left[1];
+  let mut img = RgbaImage::new(maxx - minx, maxy - miny);
+
+  for x in minx..maxx {
+    for y in miny..maxy {
+      img.put_pixel(x, y, Rgba([0,0,0,0]));
+    }
+  }
+
+  todo!("need to wipe old data for new data to be clean")
+}
+
 // combines glyph functions to render full string
 pub fn draw_str(input: RStringInputs) -> Result<(), TextError> {
   // create individual glyph rasters
   let mut offset: u32 = 0;
   let mut glyphs: Vec<(u32, u32, u32, char, RgbaImage)> = Vec::new();
   let mut max_h: u32 = 0;
+
+  // handle texture format conversion
+  let t_fmt = input.texture.format();
+  let mut color = input.color;
+  match t_fmt {
+    TextureFormat::Bgra8Unorm | TextureFormat::Bgra8UnormSrgb => {
+      let b = color[0];
+      color[0] = color[2];
+      color[2] = b;
+    }
+    _ => ()
+  }
+
+  // convert characters to rasterized images
   for c in input.string.chars() {
     // skip empty characters (todo: handle newlines separately)
     if c == ' ' || c == '\n' || c == '\t' {
-      offset += (input.size as u32) + 5;
+      offset += input.char_gap * 3;
       continue;
     }
-    let glyph = load_cached_glyph(input.font_data, c, input.size, input.color)?;
+    let glyph = load_cached_glyph(input.font_data, c, input.size, color)?;
     let x = input.top_left[0] + offset;
     let y = input.top_left[1];
     let h = glyph.height();
     
     if h > max_h { max_h = h }
-    offset += glyph.width() + 5;
+    offset += glyph.width() + input.char_gap;
     glyphs.push((x, y, h, c, glyph));
   }
 

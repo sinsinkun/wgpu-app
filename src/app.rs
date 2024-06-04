@@ -88,6 +88,9 @@ impl<'a> AppEventLoop<'a> {
         })
       }
     };
+    // initialize text pipeline
+    let (_t_id, _p_id) = self.renderer.add_text_pipeline();
+    self.renderer.render_str_on_texture(0, "Marking this texture", 80.0, [0, 0, 255], [10, 10]);
 
     let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
     let cube_data2 = Primitives::cube(20.0, 20.0, 60.0);
@@ -149,7 +152,7 @@ impl<'a> AppEventLoop<'a> {
     // render logic updates
     for obj in &mut self.shapes {
       if obj.id.0 == 1 {
-        obj.position = [-self.screen_center.0 * 0.75, -self.screen_center.1 * 0.75, 0.0];
+        obj.position = [-self.screen_center.0 * 0.75, self.screen_center.1 * 0.75, 0.0];
         obj.scale = [self.screen_center.0, self.screen_center.1, 1.0];
         self.renderer.update_object(RObjectUpdate::from_shape(obj, None));
       } else {
@@ -164,14 +167,16 @@ impl<'a> AppEventLoop<'a> {
     self.frame += 1;
     self.last_frame_time = self.new_frame_time;
     self.new_frame_time = time::Instant::now();
-    // let delta_t = self.new_frame_time - self.last_frame_time;
+    let delta_t = self.new_frame_time - self.last_frame_time;
+    let printable_t = (1.0 / delta_t.as_secs_f32()) as u32;
     // println!("delta t: {:?}", delta_t.as_secs_f32());
 
     self.renderer.set_clear_color(0.0, 0.0, 0.0, 0.0);
     self.renderer.render_texture(&[0], 1);
-    self.renderer.render_str_on_texture(1, "Hello world", 12.0, [255, 255, 0], [10, 10]);
+    self.renderer.render_str_on_texture(2, &printable_t.to_string(), 30.0, [0, 255, 255], [5, 5]);
+    self.renderer.render_str_on_texture(2, "How are you?", 30.0, [0, 255, 0], [5, 35]);
     self.renderer.set_clear_color(0.01, 0.01, 0.02, 1.0);
-    match self.renderer.render(&[0, 1]) {
+    match self.renderer.render(&[0, 1, 2]) {
       Ok(_) => Ok(()),
       // Reconfigure the surface if lost
       Err(wgpu::SurfaceError::Lost) => {
@@ -194,6 +199,7 @@ impl<'a> AppEventLoop<'a> {
     self.renderer.resize_canvas(width, height);
     self.screen_center = (width as f32 / 2.0, height as f32 / 2.0);
     self.renderer.update_texture_size(1, Some(1), width, height);
+    self.renderer.update_texture_size(2, Some(2), width, height);
     self.update();
   }
 }
