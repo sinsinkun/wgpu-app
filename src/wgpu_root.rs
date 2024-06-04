@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::{path::Path, sync::Arc, num::NonZeroU64};
+use std::{fs, path::Path, sync::Arc, num::NonZeroU64};
 
 use winit::window::Window;
 use image::{io::Reader as ImageReader, DynamicImage, GenericImageView};
@@ -9,7 +9,7 @@ use wgpu::*;
 use bytemuck::{Pod, Zeroable};
 use crate::lin_alg::Mat4;
 use crate::primitives::Shape;
-use crate::wgpu_text::{draw_glyph_texture, load_new_glyph};
+use crate::wgpu_text::{draw_str, RStringInputs};
 
 // -- FUNCTION INPUT STRUCTS --
 #[derive(Debug)]
@@ -432,12 +432,6 @@ impl<'a> Renderer<'a> {
     }
   }
 
-  pub fn draw_text_on_texture(&mut self, texture_id: usize) {
-    let texture = &mut self.textures[texture_id];
-    let glyph = load_new_glyph('a', [255, 100, 100]).unwrap();
-    draw_glyph_texture(&self.queue, texture, glyph);
-  }
-
   pub fn update_texture_size(&mut self, texture_id: usize, pipeline_id: Option<usize>, width: u32, height: u32) {
     let old_texture = &mut self.textures[texture_id];
 
@@ -806,6 +800,20 @@ impl<'a> Renderer<'a> {
       }
     }
     self.queue.submit(std::iter::once(encoder.finish()));
+  }
+
+  pub fn render_str_on_texture(&mut self, texture_id: usize, input: &str, size:f32, color: [u8; 3], top_left: [u32; 2]) {
+    let texture = &mut self.textures[texture_id];
+    let font_raw = fs::read("assets/roboto.ttf").unwrap();
+    let _ = draw_str(RStringInputs {
+      queue: &self.queue,
+      texture,
+      font_data: &font_raw,
+      string: input,
+      size,
+      color,
+      top_left,
+    });
   }
 
   pub fn render(&mut self, pipeline_ids: &[usize]) -> Result<(), wgpu::SurfaceError> {
