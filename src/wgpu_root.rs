@@ -1,16 +1,14 @@
 #![allow(dead_code)]
 
 use std::{fs, path::Path, sync::Arc, num::NonZeroU64};
-
 use winit::window::Window;
 use image::{io::Reader as ImageReader, DynamicImage, GenericImageView};
-
-use wgpu::*;
 use bytemuck::{Pod, Zeroable};
+use wgpu::*;
+
 use crate::lin_alg::Mat4;
-use crate::primitives::Shape;
+use crate::primitives::{Primitives, Shape};
 use crate::wgpu_text::{draw_str, RStringInputs};
-use crate::primitives::Primitives;
 
 // -- FUNCTION INPUT STRUCTS --
 #[derive(Debug)]
@@ -343,6 +341,17 @@ impl<'a> Renderer<'a> {
     self.clear_color.g = g;
     self.clear_color.b = b;
     self.clear_color.a = a;
+  }
+
+  pub fn load_font(&mut self, font_path: &str) {
+    match fs::read(font_path) {
+      Ok(f) => {
+        self.font_cache = Some(f);
+      }
+      Err(_) => {
+        println!("Err: Could not open font file");
+      }
+    };
   }
 
   pub fn add_texture(&mut self, width: u32, height: u32, texture_path: Option<&Path>, use_device_format: bool) -> RTextureId {
@@ -834,10 +843,7 @@ impl<'a> Renderer<'a> {
   pub fn render_str_on_texture(&mut self, texture_id: usize, input: &str, size:f32, color: [u8; 3], top_left: [u32; 2]) {
     let texture = &mut self.textures[texture_id];
     // fetch font data
-    if self.font_cache.is_none() {
-      let f = fs::read("assets/roboto.ttf").unwrap();
-      self.font_cache = Some(f);
-    }
+    if self.font_cache.is_none() { return; }
     let font_data = self.font_cache.as_ref().unwrap();
     // draw string onto existing texture
     match draw_str(RStringInputs {

@@ -89,6 +89,7 @@ impl<'a> AppEventLoop<'a> {
       }
     };
     // initialize text pipeline
+    self.renderer.load_font("assets/roboto.ttf");
     let (_t_id, _p_id) = self.renderer.add_text_pipeline();
     self.renderer.render_str_on_texture(0, "Marking this texture", 80.0, [0, 0, 255], [10, 10]);
 
