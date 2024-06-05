@@ -123,23 +123,6 @@ pub fn draw_glyph_on_texture(queue: &Queue, texture: &mut Texture, glyph: RgbaIm
   Ok(())
 }
 
-// clear residual glyphs
-pub fn clear_prev_str(queue: &Queue, texture: &mut Texture, top_left: [u32; 2], bottom_right: [u32; 2]) {
-  let minx = top_left[0];
-  let miny = top_left[1];
-  let maxx = bottom_right[0] - top_left[0];
-  let maxy = bottom_right[1] - top_left[1];
-  let mut img = RgbaImage::new(maxx - minx, maxy - miny);
-
-  for x in minx..maxx {
-    for y in miny..maxy {
-      img.put_pixel(x, y, Rgba([0,0,0,0]));
-    }
-  }
-
-  todo!("need to wipe old data for new data to be clean")
-}
-
 // combines glyph functions to render full string
 pub fn draw_str(input: RStringInputs) -> Result<(), TextError> {
   // create individual glyph rasters

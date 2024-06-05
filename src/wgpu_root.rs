@@ -790,7 +790,7 @@ impl<'a> Renderer<'a> {
     let target = tx.create_view(&TextureViewDescriptor::default());
     let zbuffer_view = self.zbuffer.create_view(&TextureViewDescriptor::default());
     let mut encoder = self.device.create_command_encoder(
-      &wgpu::CommandEncoderDescriptor { label: Some("render-encoder") }
+      &wgpu::CommandEncoderDescriptor { label: Some("render-texture-encoder") }
     );
     {
       // new context so ownership of encoder is released after pass finishes
@@ -848,7 +848,7 @@ impl<'a> Renderer<'a> {
       size,
       color,
       top_left,
-      char_gap: 3,
+      char_gap: 1,
     }) {
       Ok(()) => (),
       Err(e) => {

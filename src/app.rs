@@ -145,7 +145,6 @@ impl<'a> AppEventLoop<'a> {
   // update logic (synchronous with render loop)
   pub fn update(&mut self) {
     // logic updates
-
     self.camera.position[0] += self.input_cache.move_x as f32 * 5.0;
     self.camera.position[1] += self.input_cache.move_y as f32 * 5.0;
     self.camera.position[2] += self.input_cache.move_z as f32 * 5.0;
@@ -168,13 +167,17 @@ impl<'a> AppEventLoop<'a> {
     self.last_frame_time = self.new_frame_time;
     self.new_frame_time = time::Instant::now();
     let delta_t = self.new_frame_time - self.last_frame_time;
-    let printable_t = (1.0 / delta_t.as_secs_f32()) as u32;
-    // println!("delta t: {:?}", delta_t.as_secs_f32());
+    let fps = (1.0 / delta_t.as_secs_f32()) as u32;
+    let fps_txt = "FPS: ".to_owned() + &fps.to_string();
 
     self.renderer.set_clear_color(0.0, 0.0, 0.0, 0.0);
+    // render cubes onto texture
     self.renderer.render_texture(&[0], 1);
-    self.renderer.render_str_on_texture(2, &printable_t.to_string(), 30.0, [0, 255, 255], [5, 5]);
-    self.renderer.render_str_on_texture(2, "How are you?", 30.0, [0, 255, 0], [5, 35]);
+    // render text onto texture
+    self.renderer.render_texture(&[], 2); // clears texture background
+    self.renderer.render_str_on_texture(2, &fps_txt, 20.0, [0, 255, 0], [5, 5]);
+    self.renderer.render_str_on_texture(2, "Hello World grabs you", 18.0, [0, 255, 255], [5, 25]);
+    // render everything to screen
     self.renderer.set_clear_color(0.01, 0.01, 0.02, 1.0);
     match self.renderer.render(&[0, 1, 2]) {
       Ok(_) => Ok(()),
