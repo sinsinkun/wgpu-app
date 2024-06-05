@@ -1,6 +1,6 @@
 use std::{fs, time, path::Path};
 
-use crate::wgpu_root::{RCamera, RPipelineId, Renderer, RPipelineSetup, RObjectUpdate};
+use crate::wgpu_root::{RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, Renderer};
 use crate::primitives::{Primitives, Shape};
 
 // input handling helper
@@ -33,6 +33,8 @@ pub struct AppEventLoop<'a> {
   frame: u32, // max value: ~4,295,000,000
   last_frame_time: time::Instant,
   new_frame_time: time::Instant,
+  pipes: Vec<RPipelineId>,
+  textures: Vec<RTextureId>,
   shapes: Vec<Shape>,
   camera: RCamera,
   screen_center: (f32, f32),
@@ -53,6 +55,8 @@ impl<'a> AppEventLoop<'a> {
       camera: cam,
       screen_center: (window_size.0 / 2.0, window_size.1 / 2.0),
       input_cache: InputCache::default(),
+      pipes: Vec::new(),
+      textures: Vec::new(),
     }
   }
 
@@ -89,8 +93,8 @@ impl<'a> AppEventLoop<'a> {
       }
     };
     // initialize text pipeline
-    self.renderer.load_font("assets/roboto.ttf");
-    let (_t_id, _p_id) = self.renderer.add_text_pipeline();
+    self.renderer.load_font("assets/retro_computer.ttf");
+    let (texture3, pipe3) = self.renderer.add_text_pipeline();
     self.renderer.render_str_on_texture(0, "Marking this texture", 80.0, [0, 0, 255], [10, 10]);
 
     let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
@@ -107,6 +111,12 @@ impl<'a> AppEventLoop<'a> {
     let rect_data = Primitives::rect(0.5, 0.5, 0.0);
     let rect = Shape::new(&mut self.renderer, pipe2, rect_data);
 
+    self.pipes.push(pipe1);
+    self.pipes.push(pipe2);
+    self.pipes.push(pipe3);
+    self.textures.push(texture1);
+    self.textures.push(texture2);
+    self.textures.push(texture3);
     self.shapes.push(cube1);
     self.shapes.push(cube2);
     self.shapes.push(cube3);
@@ -173,14 +183,14 @@ impl<'a> AppEventLoop<'a> {
 
     self.renderer.set_clear_color(0.0, 0.0, 0.0, 0.0);
     // render cubes onto texture
-    self.renderer.render_texture(&[0], 1);
+    self.renderer.render_texture(&self.pipes[0..1], self.textures[1]);
     // render text onto texture
-    self.renderer.render_texture(&[], 2); // clears texture background
-    self.renderer.render_str_on_texture(2, &fps_txt, 20.0, [0, 255, 0], [5, 5]);
-    self.renderer.render_str_on_texture(2, "Hello World grabs you", 18.0, [0, 255, 255], [5, 25]);
+    self.renderer.render_texture(&[], self.textures[2]); // clears texture background
+    self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, 5]);
+    self.renderer.render_str_on_texture(self.textures[2], "Hello World grabs you", 18.0, [0, 255, 255], [5, 25]);
     // render everything to screen
     self.renderer.set_clear_color(0.01, 0.01, 0.02, 1.0);
-    match self.renderer.render(&[0, 1, 2]) {
+    match self.renderer.render(&self.pipes) {
       Ok(_) => Ok(()),
       // Reconfigure the surface if lost
       Err(wgpu::SurfaceError::Lost) => {

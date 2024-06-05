@@ -34,7 +34,7 @@ pub struct RPipelineSetup<'a> {
 impl Default for RPipelineSetup<'_> {
   fn default() -> Self {
       RPipelineSetup {
-        shader: include_str!("base.wgsl"),
+        shader: include_str!("embed_assets/base.wgsl"),
         max_obj_count: 10,
         texture_id: None,
         cull_mode: RCullMode::None,
@@ -716,7 +716,7 @@ impl<'a> Renderer<'a> {
     let texture_id = self.add_texture(self.config.width, self.config.height, None, true);
     // build render pipeline
     let pipeline_id = self.add_pipeline(RPipelineSetup {
-      shader: include_str!("text.wgsl"),
+      shader: include_str!("embed_assets/text.wgsl"),
       texture_id: Some(texture_id),
       ..Default::default()
     });
@@ -843,7 +843,10 @@ impl<'a> Renderer<'a> {
   pub fn render_str_on_texture(&mut self, texture_id: usize, input: &str, size:f32, color: [u8; 3], top_left: [u32; 2]) {
     let texture = &mut self.textures[texture_id];
     // fetch font data
-    if self.font_cache.is_none() { return; }
+    if self.font_cache.is_none() { 
+      let font = include_bytes!("embed_assets/roboto.ttf");
+      self.font_cache = Some(font.to_vec());
+    }
     let font_data = self.font_cache.as_ref().unwrap();
     // draw string onto existing texture
     match draw_str(RStringInputs {

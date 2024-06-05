@@ -26,15 +26,18 @@ pub struct RStringInputs<'a> {
 // create image of glyph to append onto texture
 pub fn load_new_glyph(c: char, color: [u8; 3]) -> Result<RgbaImage, TextError> {
   // open font
-  let font = FontRef::try_from_slice(include_bytes!("../assets/roboto.ttf"))
+  // let font = FontRef::try_from_slice(include_bytes!("../assets/retro_computer.ttf"))
+  //   .map_err(|_| TextError::FileLoadError)?;
+  let font = FontRef::try_from_slice(include_bytes!("embed_assets/roboto.ttf"))
     .map_err(|_| TextError::FileLoadError)?;
 
   // declare glyph
-  let glyph: Glyph = font.glyph_id(c).with_scale(160.0);
+  let glyph: Glyph = font.glyph_id(c).with_scale(20.0);
 
   if let Some(ch) = font.outline_glyph(glyph) {
     // define image bounds
     let bounds: Rect = ch.px_bounds();
+    println!("bounds? {bounds:?}");
     let w = bounds.max.x - bounds.min.x;
     let h = bounds.max.y - bounds.min.y;
     // define image buffer
@@ -192,7 +195,9 @@ mod glyph_brush_test {
 
   #[test]
   fn glyph_test() {
-    let _result = load_new_glyph('d', [100, 10, 100]);
+    let _ = load_new_glyph('d', [100, 10, 100]);
+    let _ = load_new_glyph('a', [100, 10, 100]);
+    let _ = load_new_glyph('-', [100, 10, 100]);
     assert_eq!(1, 2);
   }
 
