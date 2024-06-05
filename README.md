@@ -21,8 +21,7 @@ Rust version: 1.76.0
 
 `cargo build`/`cargo run`
 
-### Issues:
-- text glyphs need better vertical offset calculations
+### Known Issues:
 - text transparency renders oddly on existing texture colors
 
 ### To-do:

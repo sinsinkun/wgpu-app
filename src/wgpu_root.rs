@@ -840,7 +840,7 @@ impl<'a> Renderer<'a> {
     self.queue.submit(std::iter::once(encoder.finish()));
   }
 
-  pub fn render_str_on_texture(&mut self, texture_id: usize, input: &str, size:f32, color: [u8; 3], top_left: [u32; 2]) {
+  pub fn render_str_on_texture(&mut self, texture_id: usize, input: &str, size:f32, color: [u8; 3], base_point: [u32; 2]) {
     let texture = &mut self.textures[texture_id];
     // fetch font data
     if self.font_cache.is_none() { 
@@ -856,7 +856,7 @@ impl<'a> Renderer<'a> {
       string: input,
       size,
       color,
-      top_left,
+      base_point,
       char_gap: 1,
     }) {
       Ok(()) => (),

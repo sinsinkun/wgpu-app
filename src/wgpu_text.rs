@@ -19,15 +19,13 @@ pub struct RStringInputs<'a> {
   pub string: &'a str,
   pub size: f32,
   pub color: [u8; 3],
-  pub top_left: [u32; 2],
+  pub base_point: [u32; 2],
   pub char_gap: u32,
 }
 
 // create image of glyph to append onto texture
-pub fn load_new_glyph(c: char, color: [u8; 3]) -> Result<RgbaImage, TextError> {
+pub fn load_new_glyph(c: char, color: [u8; 3]) -> Result<(RgbaImage, f32), TextError> {
   // open font
-  // let font = FontRef::try_from_slice(include_bytes!("../assets/retro_computer.ttf"))
-  //   .map_err(|_| TextError::FileLoadError)?;
   let font = FontRef::try_from_slice(include_bytes!("embed_assets/roboto.ttf"))
     .map_err(|_| TextError::FileLoadError)?;
 
@@ -37,7 +35,6 @@ pub fn load_new_glyph(c: char, color: [u8; 3]) -> Result<RgbaImage, TextError> {
   if let Some(ch) = font.outline_glyph(glyph) {
     // define image bounds
     let bounds: Rect = ch.px_bounds();
-    println!("bounds? {bounds:?}");
     let w = bounds.max.x - bounds.min.x;
     let h = bounds.max.y - bounds.min.y;
     // define image buffer
@@ -52,14 +49,14 @@ pub fn load_new_glyph(c: char, color: [u8; 3]) -> Result<RgbaImage, TextError> {
       img.put_pixel(x, y, Rgba([r,g,b,a]));
     });
 
-    Ok(img)
+    Ok((img, bounds.min.y.abs()))
   } else {
     Err(TextError::GlyphOutlineError)
   }
 }
 
 // same as load_new_glyph but with cached font data
-pub fn load_cached_glyph(font_raw: &Vec<u8>, c: char, size: f32, color: [u8; 3]) -> Result<RgbaImage, TextError> {
+pub fn load_cached_glyph(font_raw: &Vec<u8>, c: char, size: f32, color: [u8; 3]) -> Result<(RgbaImage, f32), TextError> {
   let font = FontRef::try_from_slice(font_raw).map_err(|_| TextError::FileLoadError)?;
   let glyph: Glyph = font.glyph_id(c).with_scale(size);
 
@@ -80,7 +77,7 @@ pub fn load_cached_glyph(font_raw: &Vec<u8>, c: char, size: f32, color: [u8; 3])
       img.put_pixel(x, y, Rgba([r,g,b,a]));
     });
 
-    Ok(img)
+    Ok((img, bounds.min.y.abs()))
   } else {
     Err(TextError::GlyphOutlineError)
   }
@@ -130,8 +127,7 @@ pub fn draw_glyph_on_texture(queue: &Queue, texture: &mut Texture, glyph: RgbaIm
 pub fn draw_str(input: RStringInputs) -> Result<(), TextError> {
   // create individual glyph rasters
   let mut offset: u32 = 0;
-  let mut glyphs: Vec<(u32, u32, u32, char, RgbaImage)> = Vec::new();
-  let mut max_h: u32 = 0;
+  let mut glyphs: Vec<(u32, u32, RgbaImage)> = Vec::new();
 
   // handle texture format conversion
   let t_fmt = input.texture.format();
@@ -152,37 +148,18 @@ pub fn draw_str(input: RStringInputs) -> Result<(), TextError> {
       offset += input.char_gap * 3;
       continue;
     }
-    let glyph = load_cached_glyph(input.font_data, c, input.size, color)?;
-    let x = input.top_left[0] + offset;
-    let y = input.top_left[1];
-    let h = glyph.height();
-    
-    if h > max_h { max_h = h }
-    offset += glyph.width() + input.char_gap;
-    glyphs.push((x, y, h, c, glyph));
-  }
-
-  // update glyph positions for better alignment
-  for g in &mut glyphs {
-    match g.3 {
-      'g'|'j'|'q'|'p'|'y'|'+' => {
-        g.1 += max_h / 4;
-      }
-      '-'|'=' => {
-        g.1 += max_h / 2;
-      }
-      '\''|'\"'|'*'|'^' => (),
-      _ => {
-        if g.2 < max_h {
-          let dh = max_h - g.2;
-          g.1 += dh;
-        }
-      }
+    let (glyph, v_offset) = load_cached_glyph(input.font_data, c, input.size, color)?;
+    let x = input.base_point[0] + offset;
+    if v_offset as u32 > input.base_point[1] {
+      return Err(TextError::ExceedsBounds)
     }
+    let y = input.base_point[1] - v_offset as u32;
+    offset += glyph.width() + input.char_gap;
+    glyphs.push((x, y, glyph));
   }
 
   // draw to texture
-  for (x, y, _h, _c, img) in glyphs {
+  for (x, y, img) in glyphs {
     draw_glyph_on_texture(input.queue, input.texture, img, [x, y])?;
   }
 
@@ -195,9 +172,10 @@ mod glyph_brush_test {
 
   #[test]
   fn glyph_test() {
+    let _ = load_new_glyph('B', [100, 10, 100]);
+    let _ = load_new_glyph('o', [100, 10, 100]);
     let _ = load_new_glyph('d', [100, 10, 100]);
-    let _ = load_new_glyph('a', [100, 10, 100]);
-    let _ = load_new_glyph('-', [100, 10, 100]);
+    let _ = load_new_glyph('y', [100, 10, 100]);
     assert_eq!(1, 2);
   }
 
