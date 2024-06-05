@@ -861,7 +861,7 @@ impl<'a> Renderer<'a> {
     }) {
       Ok(()) => (),
       Err(e) => {
-        println!("Could not draw str: {:?}", e);
+        println!("Could not draw str: \"{}\" - {:?}", input, e);
       }
     };
   }

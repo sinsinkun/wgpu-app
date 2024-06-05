@@ -95,7 +95,7 @@ impl<'a> AppEventLoop<'a> {
     // initialize text pipeline
     self.renderer.load_font("assets/retro_computer.ttf");
     let (texture3, pipe3) = self.renderer.add_text_pipeline();
-    self.renderer.render_str_on_texture(0, "Marking this texture", 80.0, [0, 0, 255], [10, 90]);
+    self.renderer.render_str_on_texture(0, "Marking this texture", 80.0, [0, 0, 255], [10, 60]);
 
     let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
     let cube_data2 = Primitives::cube(20.0, 20.0, 60.0);
@@ -186,8 +186,8 @@ impl<'a> AppEventLoop<'a> {
     self.renderer.render_texture(&self.pipes[0..1], self.textures[1]);
     // render text onto texture
     self.renderer.render_texture(&[], self.textures[2]); // clears texture background
-    self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, 25]);
-    self.renderer.render_str_on_texture(self.textures[2], "Hello World grabs you", 18.0, [0, 255, 255], [5, 45]);
+    self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, 15]);
+    self.renderer.render_str_on_texture(self.textures[2], "Hello World grabs you", 18.0, [0, 255, 255], [5, 30]);
     // render everything to screen
     self.renderer.set_clear_color(0.01, 0.01, 0.02, 1.0);
     match self.renderer.render(&self.pipes) {

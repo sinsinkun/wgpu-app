@@ -126,7 +126,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 					Key::Named(NamedKey::Space) => {
 						if state == ElementState::Pressed {
 							self.request_redraw = !self.request_redraw;
-							println!("request_redraw: {}", self.request_redraw);
+							// println!("request_redraw: {}", self.request_redraw);
 						}
 					}
 					Key::Named(NamedKey::Escape) => {
