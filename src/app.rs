@@ -63,7 +63,8 @@ impl<'a> AppEventLoop<'a> {
   // initialize app objects
   pub fn init(&mut self) {
     // initialize pipeline
-    let texture1 = self.renderer.add_texture(10, 10, Some(Path::new("assets/test_uv_map.png")), false);
+    let texture1 = self.renderer.add_texture(900, 900, Some(Path::new("assets/test_uv_map.png")), false);
+    let texture4 = self.renderer.add_texture(900, 900, None, false);
     let texture2 = self.renderer.add_texture(
       (self.screen_center.0 * 2.0) as u32,
       (self.screen_center.1 * 2.0) as u32,
@@ -71,7 +72,8 @@ impl<'a> AppEventLoop<'a> {
       true
     );
     let pipe1: RPipelineId = self.renderer.add_pipeline(RPipelineSetup {
-      texture_id: Some(texture1),
+      texture1_id: Some(texture1),
+      texture2_id: Some(texture4),
       ..Default::default()
     });
     let pipe2: RPipelineId = match fs::read_to_string("assets/test.wgsl") {
@@ -79,7 +81,7 @@ impl<'a> AppEventLoop<'a> {
         self.renderer.add_pipeline(RPipelineSetup {
           shader: &str,
           max_obj_count: 1,
-          texture_id: Some(texture2),
+          texture1_id: Some(texture2),
           ..Default::default()
         })
       }
@@ -87,16 +89,17 @@ impl<'a> AppEventLoop<'a> {
         println!("Err: Could not find shader");
         self.renderer.add_pipeline(RPipelineSetup {
           max_obj_count: 1, 
-          texture_id: Some(texture2),
+          texture1_id: Some(texture2),
           ..Default::default()
         })
       }
     };
     // initialize text pipeline
     self.renderer.load_font("assets/retro_computer.ttf");
-    let (texture3, pipe3) = self.renderer.add_text_pipeline();
-    self.renderer.render_str_on_texture(0, "Marking this texture", 80.0, [0, 0, 255], [10, 60]);
+    let (texture3, pipe3) = self.renderer.add_overlay_pipeline();
+    self.renderer.render_str_on_texture(texture4, "Marking this texture", 50.0, [255, 0, 0], [10, 60], 2);
 
+    // initialize objects
     let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
     let cube_data2 = Primitives::cube(20.0, 20.0, 60.0);
     let cube_data3 = Primitives::cube(80.0, 80.0, 80.0);
@@ -111,12 +114,14 @@ impl<'a> AppEventLoop<'a> {
     let rect_data = Primitives::rect(0.5, 0.5, 0.0);
     let rect = Shape::new(&mut self.renderer, pipe2, rect_data);
 
+    // store ids
     self.pipes.push(pipe1);
     self.pipes.push(pipe2);
     self.pipes.push(pipe3);
     self.textures.push(texture1);
     self.textures.push(texture2);
     self.textures.push(texture3);
+    self.textures.push(texture4);
     self.shapes.push(cube1);
     self.shapes.push(cube2);
     self.shapes.push(cube3);
@@ -186,8 +191,8 @@ impl<'a> AppEventLoop<'a> {
     self.renderer.render_texture(&self.pipes[0..1], self.textures[1]);
     // render text onto texture
     self.renderer.render_texture(&[], self.textures[2]); // clears texture background
-    self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, 15]);
-    self.renderer.render_str_on_texture(self.textures[2], "Hello World grabs you", 18.0, [0, 255, 255], [5, 30]);
+    self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, 15], 1);
+    self.renderer.render_str_on_texture(self.textures[2], "Hello World grabs you", 18.0, [0, 255, 255], [5, 30], 1);
     // render everything to screen
     self.renderer.set_clear_color(0.01, 0.01, 0.02, 1.0);
     match self.renderer.render(&self.pipes) {
@@ -212,8 +217,8 @@ impl<'a> AppEventLoop<'a> {
   pub fn resize(&mut self, width: u32, height: u32) {
     self.renderer.resize_canvas(width, height);
     self.screen_center = (width as f32 / 2.0, height as f32 / 2.0);
-    self.renderer.update_texture_size(1, Some(1), width, height);
-    self.renderer.update_texture_size(2, Some(2), width, height);
+    self.renderer.update_texture_size(self.textures[1], Some(self.pipes[1]), width, height);
+    self.renderer.update_texture_size(self.textures[2], Some(self.pipes[2]), width, height);
     self.update();
   }
 }

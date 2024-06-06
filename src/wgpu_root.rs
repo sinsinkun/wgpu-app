@@ -25,7 +25,8 @@ pub enum RCullMode { None, Front, Back }
 pub struct RPipelineSetup<'a> {
   pub shader: &'a str,
   pub max_obj_count: usize,
-  pub texture_id: Option<usize>,
+  pub texture1_id: Option<usize>,
+  pub texture2_id: Option<usize>,
   pub cull_mode: RCullMode,
   pub vertex_fn: &'a str,
   pub fragment_fn: &'a str,
@@ -36,7 +37,8 @@ impl Default for RPipelineSetup<'_> {
       RPipelineSetup {
         shader: include_str!("embed_assets/base.wgsl"),
         max_obj_count: 10,
-        texture_id: None,
+        texture1_id: None,
+        texture2_id: None,
         cull_mode: RCullMode::None,
         vertex_fn: "vertexMain",
         fragment_fn: "fragmentMain",
@@ -477,7 +479,7 @@ impl<'a> Renderer<'a> {
       let new_bind_id = {
         let pipeline = &self.pipelines[p_id];
         let pipe = &pipeline.pipe;
-        self.add_bind_group0(pipe, pipeline.max_obj_count, Some(texture_id))
+        self.add_bind_group0(pipe, pipeline.max_obj_count, Some(texture_id), None) // TODO: handle resizing second texture
       };
       let pipeline = &mut self.pipelines[p_id];
       pipeline.bind_group0 = new_bind_id;
@@ -513,9 +515,16 @@ impl<'a> Renderer<'a> {
           },
           count: None,
         },
-        // texture
+        // texture sampler
         BindGroupLayoutEntry {
           binding: 1,
+          visibility: ShaderStages::FRAGMENT,
+          ty: BindingType::Sampler(SamplerBindingType::Filtering),
+          count: None,
+        },
+        // texture 1
+        BindGroupLayoutEntry {
+          binding: 2,
           visibility: ShaderStages::FRAGMENT,
           ty: BindingType::Texture {
             sample_type: TextureSampleType::Float { filterable: true },
@@ -524,11 +533,15 @@ impl<'a> Renderer<'a> {
           },
           count: None,
         },
-        // texture sampler
+        // texture 2
         BindGroupLayoutEntry {
-          binding: 2,
+          binding: 3,
           visibility: ShaderStages::FRAGMENT,
-          ty: BindingType::Sampler(SamplerBindingType::Filtering),
+          ty: BindingType::Texture {
+            sample_type: TextureSampleType::Float { filterable: true },
+            view_dimension: TextureViewDimension::D2,
+            multisampled: false,
+          },
           count: None,
         },
       ]
@@ -592,7 +605,7 @@ impl<'a> Renderer<'a> {
     });
 
     // build bind group
-    let bind_group0: RBindGroup = self.add_bind_group0(&pipeline, setup.max_obj_count, setup.texture_id);
+    let bind_group0: RBindGroup = self.add_bind_group0(&pipeline, setup.max_obj_count, setup.texture1_id, setup.texture2_id);
     // add to cache
     let pipe = RPipeline {
       pipe: pipeline,
@@ -604,7 +617,7 @@ impl<'a> Renderer<'a> {
     id
   }
 
-  fn add_bind_group0(&self, pipeline: &RenderPipeline, max_obj_count: usize, texture_id: Option<usize>) -> RBindGroup {
+  fn add_bind_group0(&self, pipeline: &RenderPipeline, max_obj_count: usize, texture1: Option<usize>, texture2: Option<usize>) -> RBindGroup {
     let min_stride = self.limits.min_uniform_buffer_offset_alignment;
     // create mvp buffer
     let mvp_buffer = self.device.create_buffer(&BufferDescriptor {
@@ -614,7 +627,8 @@ impl<'a> Renderer<'a> {
       mapped_at_creation: false,
     });
     // create texture
-    let texture_view: TextureView;
+    let texture1_view: TextureView;
+    let texture2_view: TextureView;
     let texture_size = Extent3d {
       width: 10,
       height: 10,
@@ -630,10 +644,15 @@ impl<'a> Renderer<'a> {
       usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
       view_formats: &[]
     });
-    if let Some(tx_id) = texture_id {
-      texture_view = self.textures[tx_id].create_view(&TextureViewDescriptor::default());
+    if let Some(tx_id) = texture1 {
+      texture1_view = self.textures[tx_id].create_view(&TextureViewDescriptor::default());
     } else {
-      texture_view = ftexture.create_view(&TextureViewDescriptor::default());
+      texture1_view = ftexture.create_view(&TextureViewDescriptor::default());
+    }
+    if let Some(tx_id) = texture2 {
+      texture2_view = self.textures[tx_id].create_view(&TextureViewDescriptor::default());
+    } else {
+      texture2_view = ftexture.create_view(&TextureViewDescriptor::default());
     }
     // create sampler
     let sampler = self.device.create_sampler(&SamplerDescriptor {
@@ -660,11 +679,15 @@ impl<'a> Renderer<'a> {
         },
         BindGroupEntry {
           binding: 1,
-          resource: BindingResource::TextureView(&texture_view)
+          resource: BindingResource::Sampler(&sampler)
         },
         BindGroupEntry {
           binding: 2,
-          resource: BindingResource::Sampler(&sampler)
+          resource: BindingResource::TextureView(&texture1_view)
+        },
+        BindGroupEntry {
+          binding: 3,
+          resource: BindingResource::TextureView(&texture2_view)
         },
       ]
     });
@@ -711,13 +734,13 @@ impl<'a> Renderer<'a> {
     }
   }
 
-  pub fn add_text_pipeline(&mut self) -> (RTextureId, RPipelineId) {
+  pub fn add_overlay_pipeline(&mut self) -> (RTextureId, RPipelineId) {
     // build full screen texture
     let texture_id = self.add_texture(self.config.width, self.config.height, None, true);
     // build render pipeline
     let pipeline_id = self.add_pipeline(RPipelineSetup {
       shader: include_str!("embed_assets/text.wgsl"),
-      texture_id: Some(texture_id),
+      texture1_id: Some(texture_id),
       ..Default::default()
     });
     // build object
@@ -840,7 +863,7 @@ impl<'a> Renderer<'a> {
     self.queue.submit(std::iter::once(encoder.finish()));
   }
 
-  pub fn render_str_on_texture(&mut self, texture_id: usize, input: &str, size:f32, color: [u8; 3], base_point: [u32; 2]) {
+  pub fn render_str_on_texture(&mut self, texture_id: usize, input: &str, size:f32, color: [u8; 3], base_point: [u32; 2], char_gap: u32) {
     let texture = &mut self.textures[texture_id];
     // fetch font data
     if self.font_cache.is_none() { 
@@ -857,7 +880,7 @@ impl<'a> Renderer<'a> {
       size,
       color,
       base_point,
-      char_gap: 1,
+      char_gap,
     }) {
       Ok(()) => (),
       Err(e) => {

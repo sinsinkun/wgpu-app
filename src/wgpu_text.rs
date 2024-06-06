@@ -74,7 +74,11 @@ pub fn load_cached_glyph(font_raw: &Vec<u8>, c: char, size: f32, color: [u8; 3])
       let g = color[1];
       let b = color[2];
       let a: u8 = f32::floor(c * 255.0) as u8;
-      img.put_pixel(x, y, Rgba([r,g,b,a]));
+      if a < 10 {
+        img.put_pixel(x, y, Rgba([0,0,0,0]));
+      } else {
+        img.put_pixel(x, y, Rgba([r,g,b,a]));
+      }
     });
 
     Ok((img, bounds.min.y.abs()))
