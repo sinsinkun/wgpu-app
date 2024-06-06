@@ -816,7 +816,11 @@ impl<'a> Renderer<'a> {
     );
   }
 
-  pub fn render_texture(&mut self, pipeline_ids: &[usize], target_id: usize) {
+  pub fn render_texture(&mut self, pipeline_ids: &[usize], target_id: usize, clear_color: Option<[f64;4]>) {
+    let mut clear_clr = self.clear_color;
+    if let Some(c) = clear_color {
+      clear_clr = Color { r:c[0], g:c[1], b:c[2], a:c[3] };
+    }
     let view = self.msaa.create_view(&TextureViewDescriptor::default());
     let tx = &self.textures[target_id];
     let target = tx.create_view(&TextureViewDescriptor::default());
@@ -832,7 +836,7 @@ impl<'a> Renderer<'a> {
           view: &view,
           resolve_target: Some(&target),
           ops: Operations {
-            load: LoadOp::Clear(self.clear_color),
+            load: LoadOp::Clear(clear_clr),
             store: StoreOp::Store,
           },
         })],

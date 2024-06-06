@@ -186,15 +186,13 @@ impl<'a> AppEventLoop<'a> {
     let fps = (1.0 / delta_t.as_secs_f32()) as u32;
     let fps_txt = "FPS: ".to_owned() + &fps.to_string();
 
-    self.renderer.set_clear_color(0.0, 0.0, 0.0, 0.0);
     // render cubes onto texture
-    self.renderer.render_texture(&self.pipes[0..1], self.textures[1]);
+    self.renderer.render_texture(&self.pipes[0..1], self.textures[1], Some([0.0, 0.0, 0.0, 0.0]));
     // render text onto texture
-    self.renderer.render_texture(&[], self.textures[2]); // clears texture background
+    self.renderer.render_texture(&[], self.textures[2], Some([0.0, 0.0, 0.0, 0.0])); // clears texture background
     self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, 15], 1);
     self.renderer.render_str_on_texture(self.textures[2], "Hello World 2-6=4?", 18.0, [0, 255, 255], [5, 30], 1);
     // render everything to screen
-    self.renderer.set_clear_color(0.01, 0.01, 0.02, 1.0);
     match self.renderer.render(&self.pipes) {
       Ok(_) => Ok(()),
       // Reconfigure the surface if lost
