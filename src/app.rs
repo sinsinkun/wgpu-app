@@ -63,8 +63,8 @@ impl<'a> AppEventLoop<'a> {
   // initialize app objects
   pub fn init(&mut self) {
     // initialize pipeline
-    let texture1 = self.renderer.add_texture(900, 900, Some(Path::new("assets/test_uv_map.png")), false);
-    let texture4 = self.renderer.add_texture(900, 900, None, false);
+    let texture1 = self.renderer.add_texture(1200, 1200, Some(Path::new("assets/test_uv_map.png")), false);
+    let texture4 = self.renderer.add_texture(800, 800, None, false);
     let texture2 = self.renderer.add_texture(
       (self.screen_center.0 * 2.0) as u32,
       (self.screen_center.1 * 2.0) as u32,
@@ -97,7 +97,7 @@ impl<'a> AppEventLoop<'a> {
     // initialize text pipeline
     self.renderer.load_font("assets/retro_computer.ttf");
     let (texture3, pipe3) = self.renderer.add_overlay_pipeline();
-    self.renderer.render_str_on_texture(texture4, "Marking this texture", 50.0, [255, 0, 0], [10, 60], 2);
+    self.renderer.render_str_on_texture(texture4, "Wordy", 200.0, [255, 0, 0], [40, 450], 10);
 
     // initialize objects
     let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
@@ -192,7 +192,7 @@ impl<'a> AppEventLoop<'a> {
     // render text onto texture
     self.renderer.render_texture(&[], self.textures[2]); // clears texture background
     self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, 15], 1);
-    self.renderer.render_str_on_texture(self.textures[2], "Hello World grabs you", 18.0, [0, 255, 255], [5, 30], 1);
+    self.renderer.render_str_on_texture(self.textures[2], "Hello World 2-6=4?", 18.0, [0, 255, 255], [5, 30], 1);
     // render everything to screen
     self.renderer.set_clear_color(0.01, 0.01, 0.02, 1.0);
     match self.renderer.render(&self.pipes) {

@@ -15,6 +15,12 @@ Note: does not support compiling to wasm for browsers
 
 <img src="assets/screenshot.png" width="700px" />
 
+Basic object rendering + MSAA + z-buffer sorting with text capabilities
+
+<img src="assets/screenshot2.png" width="700px" />
+
+Text blending on existing textures
+
 ## Installation
 
 Rust version: 1.76.0
