@@ -25,8 +25,8 @@ pub enum RCullMode { None, Front, Back }
 pub struct RPipelineSetup<'a> {
   pub shader: &'a str,
   pub max_obj_count: usize,
-  pub texture1_id: Option<usize>,
-  pub texture2_id: Option<usize>,
+  pub texture1_id: Option<RTextureId>,
+  pub texture2_id: Option<RTextureId>,
   pub cull_mode: RCullMode,
   pub vertex_fn: &'a str,
   pub fragment_fn: &'a str,
@@ -60,7 +60,7 @@ pub struct RObjectUpdate<'a> {
 impl Default for RObjectUpdate<'_> {
   fn default() -> Self {
     RObjectUpdate {
-      object_id: (0, 0),
+      object_id: RObjectId(0, 0),
       translate: &[0.0, 0.0, 0.0],
       rotate_axis: &[0.0, 0.0, 1.0],
       rotate_deg: 0.0,
@@ -128,9 +128,12 @@ pub struct RTextPipeline {
   output: wgpu::Texture,
 }
 
-pub type RObjectId = (usize, usize);
-pub type RPipelineId = usize;
-pub type RTextureId = usize;
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RObjectId (pub usize, pub usize);
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RPipelineId (pub usize);
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RTextureId (pub usize);
 
 // helper for defining camera/view matrix
 #[derive(Debug)]
@@ -413,11 +416,11 @@ impl<'a> Renderer<'a> {
     }
     // add to cache
     self.textures.push(texture);
-    id
+    RTextureId(id)
   }
 
-  pub fn update_texture(&mut self, texture_id: usize, texture_path: &Path) {
-    let texture = &mut self.textures[texture_id];
+  pub fn update_texture(&mut self, texture_id: RTextureId, texture_path: &Path) {
+    let texture = &mut self.textures[texture_id.0];
     match ImageReader::open(texture_path) {
       Ok(img_file) => match img_file.decode() {
         Ok(img_data) => {
@@ -456,8 +459,8 @@ impl<'a> Renderer<'a> {
     }
   }
 
-  pub fn update_texture_size(&mut self, texture_id: usize, pipeline_id: Option<usize>, width: u32, height: u32) {
-    let old_texture = &mut self.textures[texture_id];
+  pub fn update_texture_size(&mut self, texture_id: RTextureId, pipeline_id: Option<RPipelineId>, width: u32, height: u32) {
+    let old_texture = &mut self.textures[texture_id.0];
 
     // make new texture
     let texture_size = Extent3d { width, height, depth_or_array_layers: 1 };
@@ -472,16 +475,16 @@ impl<'a> Renderer<'a> {
       view_formats: &[]
     });
     old_texture.destroy();
-    self.textures[texture_id] = new_texture;
+    self.textures[texture_id.0] = new_texture;
 
     // update bind group
     if let Some(p_id) = pipeline_id {
       let new_bind_id = {
-        let pipeline = &self.pipelines[p_id];
+        let pipeline = &self.pipelines[p_id.0];
         let pipe = &pipeline.pipe;
         self.add_bind_group0(pipe, pipeline.max_obj_count, Some(texture_id), None) // TODO: handle resizing second texture
       };
-      let pipeline = &mut self.pipelines[p_id];
+      let pipeline = &mut self.pipelines[p_id.0];
       pipeline.bind_group0 = new_bind_id;
     }
   }
@@ -614,10 +617,15 @@ impl<'a> Renderer<'a> {
       bind_group0,
     };
     self.pipelines.push(pipe);
-    id
+    RPipelineId(id)
   }
 
-  fn add_bind_group0(&self, pipeline: &RenderPipeline, max_obj_count: usize, texture1: Option<usize>, texture2: Option<usize>) -> RBindGroup {
+  fn add_bind_group0(
+    &self, pipeline: &RenderPipeline,
+    max_obj_count: usize,
+    texture1: Option<RTextureId>,
+    texture2: Option<RTextureId>,
+  ) -> RBindGroup {
     let min_stride = self.limits.min_uniform_buffer_offset_alignment;
     // create mvp buffer
     let mvp_buffer = self.device.create_buffer(&BufferDescriptor {
@@ -645,12 +653,12 @@ impl<'a> Renderer<'a> {
       view_formats: &[]
     });
     if let Some(tx_id) = texture1 {
-      texture1_view = self.textures[tx_id].create_view(&TextureViewDescriptor::default());
+      texture1_view = self.textures[tx_id.0].create_view(&TextureViewDescriptor::default());
     } else {
       texture1_view = ftexture.create_view(&TextureViewDescriptor::default());
     }
     if let Some(tx_id) = texture2 {
-      texture2_view = self.textures[tx_id].create_view(&TextureViewDescriptor::default());
+      texture2_view = self.textures[tx_id.0].create_view(&TextureViewDescriptor::default());
     } else {
       texture2_view = ftexture.create_view(&TextureViewDescriptor::default());
     }
@@ -698,7 +706,12 @@ impl<'a> Renderer<'a> {
     }
   }
   #[cfg(never)] // unused method
-  fn add_bind_group1(&self, pipeline: &RenderPipeline, max_obj_count: usize, uniforms: Vec<RUniformSetup>) -> RBindGroup {
+  fn add_bind_group1(
+    &self,
+    pipeline: &RenderPipeline,
+    max_obj_count: usize,
+    uniforms: Vec<RUniformSetup>,
+  ) -> RBindGroup {
     let min_stride = self.limits.min_uniform_buffer_offset_alignment;
     let mut bind_entries: Vec<Buffer> = Vec::new();
     let mut bind_desc: Vec<BindGroupEntry> = Vec::new();
@@ -751,7 +764,7 @@ impl<'a> Renderer<'a> {
   }
 
   pub fn add_object(&mut self, pipeline_id: RPipelineId, v_data: Vec<RVertex>) -> RObjectId {
-    let pipe = &mut self.pipelines[pipeline_id];
+    let pipe = &mut self.pipelines[pipeline_id.0];
     let id = pipe.objects.len();
 
     // create vertex buffer
@@ -772,8 +785,9 @@ impl<'a> Renderer<'a> {
       pipe_index: id
     };
     pipe.objects.push(obj);
-    self.update_object(RObjectUpdate{ object_id: (pipeline_id, id), ..Default::default()});
-    (pipeline_id, id)
+    let object_id = RObjectId(pipeline_id.0, id);
+    self.update_object(RObjectUpdate{ object_id, ..Default::default()});
+    object_id
   }
 
   pub fn update_object(&mut self, update: RObjectUpdate) {
@@ -816,13 +830,13 @@ impl<'a> Renderer<'a> {
     );
   }
 
-  pub fn render_texture(&mut self, pipeline_ids: &[usize], target_id: usize, clear_color: Option<[f64;4]>) {
+  pub fn render_texture(&mut self, pipeline_ids: &[RPipelineId], target_id: RTextureId, clear_color: Option<[f64;4]>) {
     let mut clear_clr = self.clear_color;
     if let Some(c) = clear_color {
       clear_clr = Color { r:c[0], g:c[1], b:c[2], a:c[3] };
     }
     let view = self.msaa.create_view(&TextureViewDescriptor::default());
-    let tx = &self.textures[target_id];
+    let tx = &self.textures[target_id.0];
     let target = tx.create_view(&TextureViewDescriptor::default());
     let zbuffer_view = self.zbuffer.create_view(&TextureViewDescriptor::default());
     let mut encoder = self.device.create_command_encoder(
@@ -853,7 +867,7 @@ impl<'a> Renderer<'a> {
       });
       // add objects to render
       for p_id in pipeline_ids {
-        let pipeline = &self.pipelines[*p_id];
+        let pipeline = &self.pipelines[p_id.0];
         for obj in &pipeline.objects {
           if !obj.visible { continue; }
           let stride = self.limits.min_uniform_buffer_offset_alignment * obj.pipe_index as u32;
@@ -867,8 +881,8 @@ impl<'a> Renderer<'a> {
     self.queue.submit(std::iter::once(encoder.finish()));
   }
 
-  pub fn render_str_on_texture(&mut self, texture_id: usize, input: &str, size:f32, color: [u8; 3], base_point: [u32; 2], char_gap: u32) {
-    let texture = &mut self.textures[texture_id];
+  pub fn render_str_on_texture(&mut self, texture_id: RTextureId, input: &str, size:f32, color: [u8; 3], base_point: [u32; 2], char_gap: u32) {
+    let texture = &mut self.textures[texture_id.0];
     // fetch font data
     if self.font_cache.is_none() { 
       let font = include_bytes!("embed_assets/roboto.ttf");
@@ -893,7 +907,7 @@ impl<'a> Renderer<'a> {
     };
   }
 
-  pub fn render(&mut self, pipeline_ids: &[usize]) -> Result<(), wgpu::SurfaceError> {
+  pub fn render(&mut self, pipeline_ids: &Vec<RPipelineId>) -> Result<(), wgpu::SurfaceError> {
     let output = self.surface.get_current_texture()?;
     let view = self.msaa.create_view(&TextureViewDescriptor::default());
     let target = output.texture.create_view(&TextureViewDescriptor::default());
@@ -926,7 +940,7 @@ impl<'a> Renderer<'a> {
       });
       // add objects to render
       for p_id in pipeline_ids {
-        let pipeline = &self.pipelines[*p_id];
+        let pipeline = &self.pipelines[p_id.0];
         for obj in &pipeline.objects {
           if !obj.visible { continue; }
           let stride = self.limits.min_uniform_buffer_offset_alignment * obj.pipe_index as u32;

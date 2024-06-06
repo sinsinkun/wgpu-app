@@ -71,12 +71,12 @@ impl<'a> AppEventLoop<'a> {
       None,
       true
     );
-    let pipe1: RPipelineId = self.renderer.add_pipeline(RPipelineSetup {
+    let pipe1 = self.renderer.add_pipeline(RPipelineSetup {
       texture1_id: Some(texture1),
       texture2_id: Some(texture4),
       ..Default::default()
     });
-    let pipe2: RPipelineId = match fs::read_to_string("assets/test.wgsl") {
+    let pipe2 = match fs::read_to_string("assets/test.wgsl") {
       Ok(str) => { 
         self.renderer.add_pipeline(RPipelineSetup {
           shader: &str,
@@ -185,13 +185,15 @@ impl<'a> AppEventLoop<'a> {
     let delta_t = self.new_frame_time - self.last_frame_time;
     let fps = (1.0 / delta_t.as_secs_f32()) as u32;
     let fps_txt = "FPS: ".to_owned() + &fps.to_string();
+    // find bottom left corner
+    let y_max = (self.screen_center.1 * 2.0) as u32;
 
     // render cubes onto texture
     self.renderer.render_texture(&self.pipes[0..1], self.textures[1], Some([0.0, 0.0, 0.0, 0.0]));
     // render text onto texture
     self.renderer.render_texture(&[], self.textures[2], Some([0.0, 0.0, 0.0, 0.0])); // clears texture background
-    self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, 15], 1);
-    self.renderer.render_str_on_texture(self.textures[2], "Hello World 2-6=4?", 18.0, [0, 255, 255], [5, 30], 1);
+    self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, y_max - 10], 1);
+    self.renderer.render_str_on_texture(self.textures[2], "Hello World 2-6=4?", 18.0, [0, 255, 255], [5, y_max - 30], 1);
     // render everything to screen
     match self.renderer.render(&self.pipes) {
       Ok(_) => Ok(()),

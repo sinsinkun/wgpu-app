@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-use crate::wgpu_root::{Renderer, RVertex};
+use crate::wgpu_root::{RObjectId, RPipelineId, RVertex, Renderer};
 use crate::lin_alg::PI;
 
 pub struct Shape {
-  pub id: (usize, usize),
+  pub id: RObjectId,
   pub position: [f32; 3],
   pub rotate_axis: [f32; 3],
   pub rotate_deg: f32,
@@ -12,7 +12,7 @@ pub struct Shape {
   pub v_index: Option<Vec<f32>>
 }
 impl Shape {
-  pub fn new(renderer: &mut Renderer, pipe_id: usize, vertex_data: Vec<RVertex>) -> Self {
+  pub fn new(renderer: &mut Renderer, pipe_id: RPipelineId, vertex_data: Vec<RVertex>) -> Self {
     let id = renderer.add_object(pipe_id, vertex_data);
     Self {
       id,
