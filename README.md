@@ -22,7 +22,6 @@ Rust version: 1.76.0
 `cargo build`/`cargo run`
 
 ### Known Issues:
-- thin layer of transparency around text when overlayed on another texture
 
 ### To-do:
 - Forward render lighting pass

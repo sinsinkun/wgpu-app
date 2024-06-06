@@ -36,9 +36,8 @@ fn fragmentMain(input: VertOut) -> @location(0) vec4f {
   let n = (1.0 + input.normal) / 2.0;
   var tx1 = textureSample(texture1, txSampler, input.uv);
   var tx2 = textureSample(texture2, txSampler, input.uv);
-  var out = mix(tx1, tx2, tx2.a);
-  if (out.a < 0.0001) {
-    out = vec4f(n, 1.0);
-  }
-  return out;
+  // draw tx2 instead of tx1 if alpha > 0.8
+  var out = mix(tx1, tx2, step(0.8, tx2.a));
+  // draw normal instead of tx mix if alpha < 0.0001
+  return mix(out, vec4f(n, 1.0), step(out.a, 0.0001));
 }
