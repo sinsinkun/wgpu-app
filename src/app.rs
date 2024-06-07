@@ -108,7 +108,7 @@ impl<'a> AppEventLoop<'a> {
   // update logic (synchronous with render loop)
   pub fn update(&mut self) {
     // logic updates
-    let input_cache = self.input_handler.get_cache();
+    let input_cache = self.input_handler.output();
     self.camera.position[0] += input_cache.move_x;
     self.camera.look_at[0] += 0.9 * input_cache.move_x;
     self.camera.position[1] += input_cache.move_y;

@@ -31,7 +31,7 @@ pub struct InputCache {
   pub move_x: f32,
   pub move_y: f32,
   pub move_z: f32,
-  pub retain: bool
+  retain: bool
 }
 
 // middleware for handling inputs
@@ -74,6 +74,12 @@ impl InputHandler {
       key_binds,
       mouse_cache,
       input_cache,
+    }
+  }
+
+  pub fn remap_input(&mut self, action: InputAction, key: PhysicalKey) {
+    for (k, a) in &mut self.key_binds {
+      if *a == action { *k = key }
     }
   }
 
@@ -172,6 +178,7 @@ impl InputHandler {
   }
 
   pub fn cleanup_cache(&mut self) {
+    // clean up mouse cache
     if self.mouse_cache.left == InputState::Press { self.mouse_cache.left = InputState::Hold }
     else if self.mouse_cache.left == InputState::Release { self.mouse_cache.left = InputState::None }
     if self.mouse_cache.right == InputState::Press { self.mouse_cache.right = InputState::Hold }
@@ -184,6 +191,7 @@ impl InputHandler {
     else if self.mouse_cache.forward == InputState::Release { self.mouse_cache.forward = InputState::None }
     self.mouse_cache.scroll = 0.0;
     self.mouse_cache.position_can_update = true;
+    // clean up input cache
     if !self.input_cache.retain {
       self.input_cache.move_x = 0.0;
       self.input_cache.move_y = 0.0;
@@ -191,15 +199,7 @@ impl InputHandler {
     }
   }
 
-  pub fn remap_input(&mut self, key: PhysicalKey, action: InputAction) {
-    for (k, a) in &mut self.key_binds {
-      if *a == action {
-        *k = key;
-      }
-    }
-  }
-
-  pub fn get_cache(&self) -> &InputCache {
+  pub fn output(&self) -> &InputCache {
     &self.input_cache
   }
 }
