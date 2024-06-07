@@ -67,7 +67,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 	fn resumed(&mut self, event_loop: &ActiveEventLoop) {
 		let window_attributes = Window::default_attributes()
 			.with_min_inner_size(PhysicalSize::new(400.0, 300.0))
-			.with_title("Wgpu-rs");
+			.with_title("Wgpu App");
 		let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 		self.window = Some(window.clone());
 		self.window_size = window.inner_size().into();

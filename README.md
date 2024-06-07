@@ -13,11 +13,11 @@ MSAA filtering, z-buffer, texture render target, basic shape primitives, and mor
 
 Note: does not support compiling to wasm for browsers
 
-<img src="assets/screenshot.png" width="700px" />
+<img src="assets/screenshot.png" width="500px" />
 
 Basic object rendering + MSAA + z-buffer sorting with text capabilities
 
-<img src="assets/screenshot2.png" width="700px" />
+<img src="assets/screenshot2.png" width="500px" />
 
 Text blending on existing textures
 
@@ -26,6 +26,20 @@ Text blending on existing textures
 Rust version: 1.76.0
 
 `cargo build`/`cargo run`
+
+## Feature Set
+- Winit setup independent from app structure
+- Wgpu renderer setup independent from app structure
+  - simplified pipeline setup
+  - resize responsive
+  - supports transparency
+  - MSAA enabled by default
+  - depth buffer z-indexing enabled by default
+  - MVP transforms pre-built
+  - supports rendering to texture
+- Text renderer built on top of custom renderer
+- Input handler middleware interface
+  - supports key binding
 
 ### Known Issues:
 

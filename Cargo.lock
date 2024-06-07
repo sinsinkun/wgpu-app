@@ -2446,6 +2446,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "wgpu-app"
+version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+ "bytemuck",
+ "env_logger",
+ "image",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "wgpu-core"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2515,19 +2528,6 @@ dependencies = [
  "web-sys",
  "wgpu-types",
  "winapi",
-]
-
-[[package]]
-name = "wgpu-rs-test"
-version = "0.1.0"
-dependencies = [
- "ab_glyph",
- "bytemuck",
- "env_logger",
- "image",
- "pollster",
- "wgpu",
- "winit",
 ]
 
 [[package]]
