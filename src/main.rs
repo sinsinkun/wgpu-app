@@ -92,8 +92,6 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 				}
 				// perform window related input handling
 				match key {
-					// WARNING: Consider using `key_without_modifiers()` if available on your platform.
-					// See the `key_binding` example
 					PhysicalKey::Code(KeyCode::F1) => {
 						if state == ElementState::Pressed {
 							self.mode = Mode::Wait;
@@ -144,11 +142,26 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 					_ => ()
 				}
 			}
-			WindowEvent::CursorMoved { position:_, .. } => {
-				// todo: pass input onto app
+			WindowEvent::CursorMoved { position, .. } => {
+				// perform app input handling
+				if let Some(app_base) = &mut self.app_event_loop {
+					app_base.input_handler.winit_cursor_event(position);
+					self.request_redraw = true;
+				}
 			}
-			WindowEvent::MouseInput { state:_, button:_, .. } => {
-				// todo: pass input onto app
+			WindowEvent::MouseInput { state, button, .. } => {
+				// perform app input handling
+				if let Some(app_base) = &mut self.app_event_loop {
+					app_base.input_handler.winit_mouse_event(button, state);
+					self.request_redraw = true;
+				}
+			}
+			WindowEvent::MouseWheel { delta, .. } => {
+				// perform app input handling
+				if let Some(app_base) = &mut self.app_event_loop {
+					app_base.input_handler.winit_mouse_wheel_event(delta);
+					self.request_redraw = true;
+				}
 			}
 			WindowEvent::CursorEntered {..} => {
 				// todo
@@ -182,6 +195,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 		if self.request_redraw && !self.wait_cancelled && !self.close_requested {
 			if let Some(app_base) = &mut self.app_event_loop {
 				app_base.update();
+				app_base.input_handler.cleanup_cache();
 			}
 			self.window.as_ref().unwrap().request_redraw();
 		}

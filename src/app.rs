@@ -109,9 +109,11 @@ impl<'a> AppEventLoop<'a> {
   pub fn update(&mut self) {
     // logic updates
     let input_cache = self.input_handler.get_cache();
-    self.camera.position[0] += input_cache.move_x as f32 * 5.0;
-    self.camera.position[1] += input_cache.move_y as f32 * 5.0;
-    self.camera.position[2] += input_cache.move_z as f32 * 5.0;
+    self.camera.position[0] += input_cache.move_x;
+    self.camera.look_at[0] += 0.9 * input_cache.move_x;
+    self.camera.position[1] += input_cache.move_y;
+    self.camera.look_at[1] += 0.9 * input_cache.move_y;
+    self.camera.position[2] += input_cache.move_z;
     
     // render logic updates
     for obj in &mut self.shapes {
