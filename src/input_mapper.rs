@@ -5,7 +5,7 @@ use winit::event::{ElementState, MouseButton, MouseScrollDelta};
 use winit::keyboard::{PhysicalKey, KeyCode};
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum InputState {
+enum InputState {
   None, Press, Hold, Release
 }
 
@@ -15,7 +15,7 @@ pub enum InputAction {
 }
 
 #[derive(Debug)]
-pub struct MouseCache {
+struct MouseCache {
   left: InputState,
   right: InputState,
   middle: InputState,
@@ -39,8 +39,8 @@ pub struct InputCache {
 #[derive(Debug)]
 pub struct InputHandler {
   pub key_binds: Vec<(PhysicalKey, InputAction)>,
-  pub mouse_cache: MouseCache,
-  pub input_cache: InputCache,
+  mouse_cache: MouseCache,
+  input_cache: InputCache,
 }
 
 impl InputHandler {
