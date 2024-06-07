@@ -6,16 +6,18 @@ use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, KeyEvent, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::keyboard::{Key, NamedKey};
+use winit::keyboard::{PhysicalKey, KeyCode};
 use winit::window::{Window, WindowId, CursorGrabMode};
 
 mod wgpu_root;
-use wgpu_root::Renderer;
 mod wgpu_text;
 mod primitives;
 mod lin_alg;
 mod app;
-use app::{AppEventLoop, InputKey, InputState};
+mod input_mapper;
+
+use wgpu_root::Renderer;
+use app::AppEventLoop;
 
 // constants
 const WAIT_TIME: time::Duration = time::Duration::from_millis(1000);
@@ -82,59 +84,46 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 			WindowEvent::CloseRequested => {
 				self.close_requested = true;
 			}
-			WindowEvent::KeyboardInput { event: KeyEvent { logical_key: key, state, repeat, .. }, .. } => {
+			WindowEvent::KeyboardInput { event: KeyEvent { physical_key: key, state, repeat, .. }, .. } => {
 				// perform app input handling first
-				let mut key_state = InputState::None;
-				if state == ElementState::Pressed && !repeat { key_state = InputState::Press }
-				else if repeat { key_state = InputState::Hold }
-				else if state == ElementState::Released { key_state = InputState::Release };
-
 				if let Some(app_base) = &mut self.app_event_loop {
-					match key.as_ref() {
-						Key::Character("w") => { app_base.input(InputKey::Up, key_state) }
-						Key::Character("s") => { app_base.input(InputKey::Down, key_state) }
-						Key::Character("a") => { app_base.input(InputKey::Left, key_state) }
-						Key::Character("d") => { app_base.input(InputKey::Right, key_state) }
-						Key::Character("q") => { app_base.input(InputKey::Fwd, key_state) }
-						Key::Character("e") => { app_base.input(InputKey::Bkwd, key_state) }
-						_ => ()
-					}
+					app_base.input_handler.winit_kb_event(&key, &state, repeat);
 					self.request_redraw = true;
 				}
 				// perform window related input handling
-				match key.as_ref() {
+				match key {
 					// WARNING: Consider using `key_without_modifiers()` if available on your platform.
 					// See the `key_binding` example
-					Key::Named(NamedKey::F1) => {
+					PhysicalKey::Code(KeyCode::F1) => {
 						if state == ElementState::Pressed {
 							self.mode = Mode::Wait;
 							println!("mode: {:?}", self.mode);
 						}
 					}
-					Key::Named(NamedKey::F2) => {
+					PhysicalKey::Code(KeyCode::F2) => {
 						if state == ElementState::Pressed {
 							self.mode = Mode::WaitUntil;
 							println!("mode: {:?}", self.mode);
 						}
 					}
-					Key::Named(NamedKey::F3) => {
+					PhysicalKey::Code(KeyCode::F3) => {
 						if state == ElementState::Pressed {
 							self.mode = Mode::Poll;
 							println!("mode: {:?}", self.mode);
 						}
 					}
-					Key::Named(NamedKey::Space) => {
+					PhysicalKey::Code(KeyCode::Space) => {
 						if state == ElementState::Pressed {
 							self.request_redraw = !self.request_redraw;
 							// println!("request_redraw: {}", self.request_redraw);
 						}
 					}
-					Key::Named(NamedKey::Escape) => {
+					PhysicalKey::Code(KeyCode::Escape) => {
 						if state == ElementState::Pressed {
 							self.close_requested = true;
 						}
 					}
-					Key::Named(NamedKey::Alt) => {
+					PhysicalKey::Code(KeyCode::AltLeft) => {
 						if let Some(win) = &self.window {
 							let x = self.window_size.0 / 2.0;
 							let y = self.window_size.1 / 2.0;

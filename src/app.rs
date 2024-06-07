@@ -2,34 +2,11 @@ use std::{fs, time, path::Path};
 
 use crate::wgpu_root::{RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, Renderer};
 use crate::primitives::{Primitives, Shape};
-
-// input handling helper
-#[derive(Debug, Clone, PartialEq)]
-pub enum InputState {
-  None, Press, Hold, Release
-}
-pub enum InputKey {
-  Up, Down, Left, Right, Fwd, Bkwd,
-}
-
-#[derive(Debug)]
-pub struct InputCache {
-  move_x: i32,
-  move_y: i32,
-  move_z: i32,
-}
-impl Default for InputCache {
-  fn default() -> Self {
-    Self {
-      move_x: 0,
-      move_y: 0,
-      move_z: 0,
-    }  
-  }
-}
+use crate::input_mapper::InputHandler;
 
 pub struct AppEventLoop<'a> {
   renderer: Renderer<'a>,
+  pub input_handler: InputHandler,
   frame: u32, // max value: ~4,295,000,000
   last_frame_time: time::Instant,
   new_frame_time: time::Instant,
@@ -38,23 +15,23 @@ pub struct AppEventLoop<'a> {
   shapes: Vec<Shape>,
   camera: RCamera,
   screen_center: (f32, f32),
-  pub input_cache: InputCache,
 }
 
 impl<'a> AppEventLoop<'a> {
   pub fn new(wgpu: Renderer<'a>, window_size: &(f32, f32)) -> Self {
     let mut cam = RCamera::new_persp(60.0, 1.0, 1000.0);
     cam.position = [0.0, 0.0, 200.0];
+    let input_handler = InputHandler::new();
 
     Self{
       renderer: wgpu,
+      input_handler,
       shapes: vec![],
       frame: 0,
       last_frame_time: time::Instant::now(),
       new_frame_time: time::Instant::now(),
       camera: cam,
       screen_center: (window_size.0 / 2.0, window_size.1 / 2.0),
-      input_cache: InputCache::default(),
       pipes: Vec::new(),
       textures: Vec::new(),
     }
@@ -95,7 +72,7 @@ impl<'a> AppEventLoop<'a> {
       }
     };
     // initialize text pipeline
-    self.renderer.load_font("assets/retro_computer.ttf");
+    // self.renderer.load_font("assets/retro_computer.ttf");
     let (texture3, pipe3) = self.renderer.add_overlay_pipeline();
     self.renderer.render_str_on_texture(texture4, "Wordy", 200.0, [255, 0, 0], [40, 450], 10);
 
@@ -128,42 +105,14 @@ impl<'a> AppEventLoop<'a> {
     self.shapes.push(rect);
   }
 
-  // handle inputs (asynchronous with render loop)
-  pub fn input(&mut self, key: InputKey, state: InputState) {
-    match key {
-      InputKey::Up => { 
-        if state == InputState::Press { self.input_cache.move_y += 1 }
-        if state == InputState::Release { self.input_cache.move_y -= 1 }
-      }
-      InputKey::Down => {
-        if state == InputState::Press { self.input_cache.move_y += -1 }
-        if state == InputState::Release { self.input_cache.move_y -= -1 }
-      }
-      InputKey::Left => {
-        if state == InputState::Press { self.input_cache.move_x += -1 }
-        if state == InputState::Release { self.input_cache.move_x -= -1 }
-      }
-      InputKey::Right => {
-        if state == InputState::Press { self.input_cache.move_x += 1 }
-        if state == InputState::Release { self.input_cache.move_x -= 1 }
-      }
-      InputKey::Fwd => {
-        if state == InputState::Press { self.input_cache.move_z += -1 }
-        if state == InputState::Release { self.input_cache.move_z -= -1 }
-      }
-      InputKey::Bkwd => {
-        if state == InputState::Press { self.input_cache.move_z += 1 }
-        if state == InputState::Release { self.input_cache.move_z -= 1 }
-      }
-    }
-  }
-
   // update logic (synchronous with render loop)
   pub fn update(&mut self) {
     // logic updates
-    self.camera.position[0] += self.input_cache.move_x as f32 * 5.0;
-    self.camera.position[1] += self.input_cache.move_y as f32 * 5.0;
-    self.camera.position[2] += self.input_cache.move_z as f32 * 5.0;
+    let input_cache = self.input_handler.get_cache();
+    self.camera.position[0] += input_cache.move_x as f32 * 5.0;
+    self.camera.position[1] += input_cache.move_y as f32 * 5.0;
+    self.camera.position[2] += input_cache.move_z as f32 * 5.0;
+    
     // render logic updates
     for obj in &mut self.shapes {
       if obj.id.0 == 1 {
@@ -193,7 +142,7 @@ impl<'a> AppEventLoop<'a> {
     // render text onto texture
     self.renderer.render_texture(&[], self.textures[2], Some([0.0, 0.0, 0.0, 0.0])); // clears texture background
     self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, y_max - 10], 1);
-    self.renderer.render_str_on_texture(self.textures[2], "Hello World 2-6=4?", 18.0, [0, 255, 255], [5, y_max - 30], 1);
+    self.renderer.render_str_on_texture(self.textures[2], "Camera controls: WASD, EQ", 18.0, [50, 50, 255], [5, y_max - 30], 1);
     // render everything to screen
     match self.renderer.render(&self.pipes) {
       Ok(_) => Ok(()),
