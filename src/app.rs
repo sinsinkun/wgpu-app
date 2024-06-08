@@ -1,4 +1,5 @@
 use std::{fs, time, path::Path};
+use rand::{thread_rng, Rng};
 
 use crate::wgpu_root::{RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, Renderer};
 use crate::primitives::{Primitives, Shape};
@@ -51,6 +52,7 @@ impl<'a> AppEventLoop<'a> {
     let pipe1 = self.renderer.add_pipeline(RPipelineSetup {
       texture1_id: Some(texture1),
       texture2_id: Some(texture4),
+      max_obj_count: 1000,
       ..Default::default()
     });
     let pipe2 = match fs::read_to_string("assets/test.wgsl") {
@@ -72,24 +74,35 @@ impl<'a> AppEventLoop<'a> {
       }
     };
     // initialize text pipeline
-    // self.renderer.load_font("assets/retro_computer.ttf");
+    self.renderer.load_font("assets/retro_computer.ttf");
     let (texture3, pipe3) = self.renderer.add_overlay_pipeline();
-    self.renderer.render_str_on_texture(texture4, "Wordy", 200.0, [255, 0, 0], [40, 450], 10);
+    self.renderer.render_str_on_texture(texture4, "Marked", 200.0, [255, 0, 0], [40, 450], 10);
 
     // initialize objects
-    let cube_data1 = Primitives::cube(50.0, 50.0, 50.0);
-    let cube_data2 = Primitives::cube(20.0, 20.0, 60.0);
-    let cube_data3 = Primitives::cube(80.0, 80.0, 80.0);
-    let cube1 = Shape::new(&mut self.renderer, pipe1, cube_data1);
-    let mut cube2 = Shape::new(&mut self.renderer, pipe1, cube_data2);
-    cube2.position = [60.0, 0.0, 0.0];
-    cube2.rotate_axis = [1.0, 0.5, 0.0];
-    let mut cube3 = Shape::new(&mut self.renderer, pipe1, cube_data3);
-    cube3.position = [-60.0, 0.0, 0.0];
-    cube3.rotate_axis = [0.0, 0.5, 1.0];
+    let cube_data = Primitives::cube(40.0, 40.0, 40.0);
+    for x in 0..10 {
+      for y in 0..10 {
+        for z in 0..5 {
+          let rx: f32 = thread_rng().gen_range(-1.0..1.0);
+          let ry: f32 = thread_rng().gen_range(-1.0..1.0);
+          let rz: f32 = thread_rng().gen_range(-1.0..1.0);
+          let s: f32 = thread_rng().gen_range(0.5..1.2);
+          let mut cube = Shape::new(&mut self.renderer, pipe1, cube_data.clone());
+          cube.position = [
+            -270.0 + x as f32 * 60.0 + rx * 20.0,
+            -270.0 + y as f32 * 60.0 + ry * 20.0,
+            z as f32 * 60.0 + rz * 20.0
+          ];
+          cube.rotate_axis = [rx, ry, rz];
+          cube.scale = [s, s, s];
+          self.shapes.push(cube);
+        }
+      }
+    }
 
     let rect_data = Primitives::rect(0.5, 0.5, 0.0);
     let rect = Shape::new(&mut self.renderer, pipe2, rect_data);
+    self.shapes.push(rect);
 
     // store ids
     self.pipes.push(pipe1);
@@ -99,10 +112,6 @@ impl<'a> AppEventLoop<'a> {
     self.textures.push(texture2);
     self.textures.push(texture3);
     self.textures.push(texture4);
-    self.shapes.push(cube1);
-    self.shapes.push(cube2);
-    self.shapes.push(cube3);
-    self.shapes.push(rect);
   }
 
   // update logic (synchronous with render loop)
@@ -140,7 +149,7 @@ impl<'a> AppEventLoop<'a> {
     let y_max = (self.screen_center.1 * 2.0) as u32;
 
     // render cubes onto texture
-    self.renderer.render_texture(&self.pipes[0..1], self.textures[1], Some([0.0, 0.0, 0.0, 0.0]));
+    self.renderer.render_texture(&self.pipes[0..1], self.textures[1], Some([1.0, 0.0, 0.0, 1.0]));
     // render text onto texture
     self.renderer.render_texture(&[], self.textures[2], Some([0.0, 0.0, 0.0, 0.0])); // clears texture background
     self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, y_max - 10], 1);
