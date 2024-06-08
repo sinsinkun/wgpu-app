@@ -9,6 +9,7 @@ pub struct Shape {
   pub rotate_axis: [f32; 3],
   pub rotate_deg: f32,
   pub scale: [f32; 3],
+  pub visible: bool,
   pub v_index: Option<Vec<f32>>
 }
 impl Shape {
@@ -20,6 +21,7 @@ impl Shape {
       rotate_axis: [0.0, 0.0, 1.0],
       rotate_deg: 0.0,
       scale: [1.0, 1.0, 1.0],
+      visible: true,
       v_index: None
     }
   }

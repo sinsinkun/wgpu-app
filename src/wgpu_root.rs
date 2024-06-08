@@ -78,7 +78,7 @@ impl<'a> RObjectUpdate<'a> {
       rotate_axis: &shape.rotate_axis,
       rotate_deg: shape.rotate_deg,
       scale: &shape.scale,
-      visible: true,
+      visible: shape.visible,
       camera,
     }
   }
@@ -116,16 +116,6 @@ pub struct RPipeline {
   // bind_group1: Option<RBindGroup>,
   // bind_group2: Option<RBindGroup>,
   // bind_group3: Option<RBindGroup>,
-}
-
-#[derive(Debug)]
-pub struct RTextPipeline {
-  pipe: wgpu::RenderPipeline,
-  objects: Vec<RObject>,
-  max_obj_count: usize,
-  bind_group0: RBindGroup,
-  font_data: Vec<u8>,
-  output: wgpu::Texture,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
