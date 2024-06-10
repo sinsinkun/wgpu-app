@@ -33,9 +33,11 @@ fn vertexMain(input: VertIn) -> VertOut {
 
 @fragment
 fn fragmentMain(input: VertOut) -> @location(0) vec4f {
-  if (input.uv.x < 0.01 || input.uv.y < 0.01 || input.uv.x > 0.99 || input.uv.y > 0.99) {
-    return vec4f(1.0, 0.0, 0.0, 0.8);
+  var out = textureSample(texture1, txSampler, input.uv);
+  let y_border = 0.015;
+  let x_border = y_border * 3 / 4; // h/w ratio
+  if (input.uv.x < x_border || input.uv.x > 1.0 - x_border || input.uv.y < y_border || input.uv.y > 1.0 - y_border) {
+    out = vec4f(0.8, 0.0, 0.0, 1.0);
   }
-  var tx = textureSample(texture1, txSampler, input.uv);
-  return tx;
+  return out;
 }

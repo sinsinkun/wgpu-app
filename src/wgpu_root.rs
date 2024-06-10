@@ -48,6 +48,24 @@ impl Default for RPipelineSetup<'_> {
 }
 
 #[derive(Debug)]
+pub struct RObjectSetup {
+  pub pipeline_id: RPipelineId,
+  pub vertex_data: Vec<RVertex>,
+  pub instances: u32,
+  pub indices: Vec<u32>
+}
+impl Default for RObjectSetup {
+  fn default() -> Self {
+    RObjectSetup  {
+      pipeline_id: RPipelineId(0),
+      vertex_data: Vec::new(),
+      indices: Vec::new(),
+      instances: 1,
+    }
+  }
+}
+
+#[derive(Debug)]
 pub struct RObjectUpdate<'a> {
   pub object_id: RObjectId,
   pub translate: &'a [f32; 3],
@@ -99,6 +117,9 @@ pub struct RObject {
   v_buffer: wgpu::Buffer,
   v_count: usize,
   pipe_index: usize,
+  index_buffer: Option<wgpu::Buffer>,
+  index_count: u32,
+  instances: u32,
 }
 
 #[derive(Debug)]
@@ -747,35 +768,52 @@ impl<'a> Renderer<'a> {
       ..Default::default()
     });
     // build object
-    let rect_data = Primitives::rect(2.0, 2.0, 0.0);
-    let _rect = Shape::new(self, pipeline_id, rect_data);
+    let (rect_data, rect_i) = Primitives::rect_indexed(2.0, 2.0, 0.0);
+    let _rect = Shape::new(self, pipeline_id, rect_data, Some(rect_i));
     // output fields
     (texture_id, pipeline_id)
   }
 
-  pub fn add_object(&mut self, pipeline_id: RPipelineId, v_data: Vec<RVertex>) -> RObjectId {
-    let pipe = &mut self.pipelines[pipeline_id.0];
+  pub fn add_object(&mut self, obj_data: RObjectSetup) -> RObjectId {
+    let pipe = &mut self.pipelines[obj_data.pipeline_id.0];
     let id = pipe.objects.len();
 
     // create vertex buffer
-    let vlen = v_data.len();
+    let vlen = obj_data.vertex_data.len();
     let v_buffer = self.device.create_buffer(&BufferDescriptor {
       label: Some("vertex-buffer"),
       size: (std::mem::size_of::<RVertex>() * vlen) as u64,
       usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
       mapped_at_creation: false
     });
-    self.queue.write_buffer(&v_buffer, 0, bytemuck::cast_slice(&v_data.as_slice()));
+    self.queue.write_buffer(&v_buffer, 0, bytemuck::cast_slice(&obj_data.vertex_data));
+
+    // create index buffer
+    let mut index_buffer: Option<Buffer> = None;
+    let ilen: usize = obj_data.indices.len();
+    if ilen > 0 {
+      let i_buffer = self.device.create_buffer(&BufferDescriptor {
+        label: Some("index-buffer"),
+        size: (std::mem::size_of::<u32>() * ilen) as u64,
+        usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+        mapped_at_creation: false
+      });
+      self.queue.write_buffer(&i_buffer, 0, bytemuck::cast_slice(&obj_data.indices));
+      index_buffer = Some(i_buffer);
+    }
 
     // save to cache
     let obj = RObject {
       visible: true,
       v_buffer,
       v_count: vlen,
-      pipe_index: id
+      pipe_index: id,
+      index_buffer,
+      index_count: ilen as u32,
+      instances: 1,
     };
     pipe.objects.push(obj);
-    let object_id = RObjectId(pipeline_id.0, id);
+    let object_id = RObjectId(obj_data.pipeline_id.0, id);
     self.update_object(RObjectUpdate{ object_id, ..Default::default()});
     object_id
   }
@@ -864,7 +902,12 @@ impl<'a> Renderer<'a> {
           pass.set_pipeline(&pipeline.pipe);
           pass.set_vertex_buffer(0, obj.v_buffer.slice(..));
           pass.set_bind_group(0, &pipeline.bind_group0.base, &[stride]);
-          pass.draw(0..(obj.v_count as u32), 0..1);
+          if let Some(i_buffer) = &obj.index_buffer {
+            pass.set_index_buffer(i_buffer.slice(..), IndexFormat::Uint32);
+            pass.draw_indexed(0..obj.index_count, 0, 0..obj.instances);
+          } else {
+            pass.draw(0..(obj.v_count as u32), 0..obj.instances);
+          }
         }
       }
     }
@@ -937,7 +980,12 @@ impl<'a> Renderer<'a> {
           pass.set_pipeline(&pipeline.pipe);
           pass.set_vertex_buffer(0, obj.v_buffer.slice(..));
           pass.set_bind_group(0, &pipeline.bind_group0.base, &[stride]);
-          pass.draw(0..(obj.v_count as u32), 0..1);
+          if let Some(i_buffer) = &obj.index_buffer {
+            pass.set_index_buffer(i_buffer.slice(..), IndexFormat::Uint32);
+            pass.draw_indexed(0..obj.index_count, 0, 0..obj.instances);
+          } else {
+            pass.draw(0..(obj.v_count as u32), 0..obj.instances);
+          }
         }
       }
     }

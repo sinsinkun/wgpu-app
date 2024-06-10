@@ -87,7 +87,7 @@ impl<'a> AppEventLoop<'a> {
           let ry: f32 = thread_rng().gen_range(-1.0..1.0);
           let rz: f32 = thread_rng().gen_range(-1.0..1.0);
           let s: f32 = thread_rng().gen_range(0.5..1.2);
-          let mut cube = Shape::new(&mut self.renderer, pipe1, cube_data.clone());
+          let mut cube = Shape::new(&mut self.renderer, pipe1, cube_data.clone(), None);
           cube.position = [
             -270.0 + x as f32 * 60.0 + rx * 20.0,
             -270.0 + y as f32 * 60.0 + ry * 20.0,
@@ -100,8 +100,8 @@ impl<'a> AppEventLoop<'a> {
       }
     }
 
-    let rect_data = Primitives::rect(0.5, 0.5, 0.0);
-    let rect = Shape::new(&mut self.renderer, pipe2, rect_data);
+    let (rect_data, rect_i) = Primitives::rect_indexed(0.5, 0.5, 0.0);
+    let rect = Shape::new(&mut self.renderer, pipe2, rect_data, Some(rect_i));
     self.shapes.push(rect);
 
     // store ids

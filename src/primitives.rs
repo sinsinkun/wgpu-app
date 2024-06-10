@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::wgpu_root::{RObjectId, RPipelineId, RVertex, Renderer};
+use crate::wgpu_root::{RObjectId, RPipelineId, RVertex, Renderer, RObjectSetup};
 use crate::lin_alg::PI;
 
 pub struct Shape {
@@ -13,8 +13,16 @@ pub struct Shape {
   pub v_index: Option<Vec<f32>>
 }
 impl Shape {
-  pub fn new(renderer: &mut Renderer, pipe_id: RPipelineId, vertex_data: Vec<RVertex>) -> Self {
-    let id = renderer.add_object(pipe_id, vertex_data);
+  pub fn new(renderer: &mut Renderer, pipeline_id: RPipelineId, vertex_data: Vec<RVertex>, index_data: Option<Vec<u32>>) -> Self {
+    let mut setup = RObjectSetup {
+      pipeline_id,
+      vertex_data,
+      ..Default::default()
+    };
+    if let Some(indices) = index_data {
+      setup.indices = indices;
+    }
+    let id = renderer.add_object(setup);
     Self {
       id,
       position: [0.0, 0.0, 0.0],
@@ -79,6 +87,52 @@ impl Primitives {
       RVertex { position: [ w, h, d], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
     ]
   }
+  pub fn cube_indexed(width: f32, height: f32, depth: f32) -> (Vec<RVertex>, Vec<u32>) {
+    let w = width /2.0;
+    let h = height / 2.0;
+    let d = depth / 2.0;
+    let a = vec![
+      // face top
+      RVertex { position: [ w,-h, d], uv: [1.0,0.0], normal: [0.0,1.0,0.0] },
+      RVertex { position: [ w,-h,-d], uv: [1.0,1.0], normal: [0.0,1.0,0.0] },
+      RVertex { position: [-w,-h,-d], uv: [0.0,1.0], normal: [0.0,1.0,0.0] },
+      RVertex { position: [-w,-h, d], uv: [0.0,0.0], normal: [0.0,1.0,0.0] },
+      // face bottom
+      RVertex { position: [ w, h,-d], uv: [1.0,0.0], normal: [0.0,-1.0,0.0] },
+      RVertex { position: [ w, h, d], uv: [1.0,1.0], normal: [0.0,-1.0,0.0] },
+      RVertex { position: [-w, h, d], uv: [0.0,1.0], normal: [0.0,-1.0,0.0] },
+      RVertex { position: [-w, h,-d], uv: [0.0,0.0], normal: [0.0,-1.0,0.0] },
+      // face left
+      RVertex { position: [-w, h, d], uv: [1.0,0.0], normal: [-1.0,0.0,0.0] },
+      RVertex { position: [-w,-h, d], uv: [1.0,1.0], normal: [-1.0,0.0,0.0] },
+      RVertex { position: [-w,-h,-d], uv: [0.0,1.0], normal: [-1.0,0.0,0.0] },
+      RVertex { position: [-w, h,-d], uv: [0.0,0.0], normal: [-1.0,0.0,0.0] },
+      // face right
+      RVertex { position: [ w, h,-d], uv: [1.0,0.0], normal: [1.0,0.0,0.0] },
+      RVertex { position: [ w,-h,-d], uv: [1.0,1.0], normal: [1.0,0.0,0.0] },
+      RVertex { position: [ w,-h, d], uv: [0.0,1.0], normal: [1.0,0.0,0.0] },
+      RVertex { position: [ w, h, d], uv: [0.0,0.0], normal: [1.0,0.0,0.0] },
+      // face back
+      RVertex { position: [-w, h,-d], uv: [0.0,1.0], normal: [0.0,0.0,-1.0] },
+      RVertex { position: [-w,-h,-d], uv: [0.0,0.0], normal: [0.0,0.0,-1.0] },
+      RVertex { position: [ w,-h,-d], uv: [1.0,0.0], normal: [0.0,0.0,-1.0] },
+      RVertex { position: [ w, h,-d], uv: [1.0,1.0], normal: [0.0,0.0,-1.0] },
+      // face front
+      RVertex { position: [ w, h, d], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [ w,-h, d], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [-w,-h, d], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [-w, h, d], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
+    ];
+    let b = vec![
+      0,1,2,2,3,0, // top
+      4,5,6,6,7,4, // bottom
+      8,9,10,10,11,8, // left
+      12,13,14,14,15,12, // right
+      16,17,18,18,19,16, // back
+      20,21,22,22,23,20, // front
+    ];
+    (a, b)
+  }
   pub fn rect(width: f32, height: f32, z_index: f32) -> Vec<RVertex> {
     let w = width / 2.0;
     let h = height / 2.0;
@@ -90,6 +144,18 @@ impl Primitives {
       RVertex { position: [-w, h, z_index], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
       RVertex { position: [-w, -h, z_index], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
     ]
+  }
+  pub fn rect_indexed(width: f32, height: f32, z_index: f32) -> (Vec<RVertex>, Vec<u32>) {
+    let w = width / 2.0;
+    let h = height / 2.0;
+    let a = vec![
+      RVertex { position: [-w, -h, z_index], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [w, -h, z_index], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [w, h, z_index], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [-w, h, z_index], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
+    ];
+    let b = vec![0,1,2,2,3,0];
+    (a, b)
   }
   pub fn reg_polygon(radius:f32, sides:u32, z_index:f32) -> Vec<RVertex> {
     let mut v: Vec<RVertex> = vec![];
