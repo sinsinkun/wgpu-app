@@ -26,7 +26,7 @@ pub struct RStringInputs<'a> {
 // create image of glyph to append onto texture
 pub fn load_new_glyph(c: char, color: [u8; 3]) -> Result<(RgbaImage, f32), TextError> {
   // open font
-  let font = FontRef::try_from_slice(include_bytes!("embed_assets/roboto.ttf"))
+  let font = FontRef::try_from_slice(include_bytes!("../embed_assets/roboto.ttf"))
     .map_err(|_| TextError::FileLoadError)?;
 
   // declare glyph

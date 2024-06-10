@@ -9,14 +9,11 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{PhysicalKey, KeyCode};
 use winit::window::{Window, WindowId, CursorGrabMode};
 
-mod wgpu_root;
-mod wgpu_text;
-mod primitives;
-mod lin_alg;
+mod wgpu_renderer;
 mod app;
 mod input_mapper;
 
-use wgpu_root::Renderer;
+use wgpu_renderer::Renderer;
 use app::AppEventLoop;
 
 // constants

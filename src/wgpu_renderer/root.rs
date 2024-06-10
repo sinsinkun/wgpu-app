@@ -6,101 +6,7 @@ use image::{io::Reader as ImageReader, DynamicImage, GenericImageView};
 use bytemuck::{Pod, Zeroable};
 use wgpu::*;
 
-use crate::lin_alg::Mat4;
-use crate::primitives::{Primitives, Shape};
-use crate::wgpu_text::{draw_str, RStringInputs};
-
-// -- FUNCTION INPUT STRUCTS --
-#[derive(Debug)]
-pub enum RUniformVisibility { Vertex, Fragment, Both }
-#[derive(Debug)]
-pub struct RUniformSetup {
-  pub bind_slot: u32,
-  pub visibility: RUniformVisibility,
-  pub size_in_bytes: u32,
-}
-#[derive(Debug)]
-pub enum RCullMode { None, Front, Back }
-#[derive(Debug)]
-pub struct RPipelineSetup<'a> {
-  pub shader: &'a str,
-  pub max_obj_count: usize,
-  pub texture1_id: Option<RTextureId>,
-  pub texture2_id: Option<RTextureId>,
-  pub cull_mode: RCullMode,
-  pub vertex_fn: &'a str,
-  pub fragment_fn: &'a str,
-  // pub uniforms: Vec<RUniformSetup>,
-}
-impl Default for RPipelineSetup<'_> {
-  fn default() -> Self {
-      RPipelineSetup {
-        shader: include_str!("embed_assets/base.wgsl"),
-        max_obj_count: 10,
-        texture1_id: None,
-        texture2_id: None,
-        cull_mode: RCullMode::None,
-        vertex_fn: "vertexMain",
-        fragment_fn: "fragmentMain",
-        // uniforms: Vec::new(),
-      }
-  }
-}
-
-#[derive(Debug)]
-pub struct RObjectSetup {
-  pub pipeline_id: RPipelineId,
-  pub vertex_data: Vec<RVertex>,
-  pub instances: u32,
-  pub indices: Vec<u32>
-}
-impl Default for RObjectSetup {
-  fn default() -> Self {
-    RObjectSetup  {
-      pipeline_id: RPipelineId(0),
-      vertex_data: Vec::new(),
-      indices: Vec::new(),
-      instances: 1,
-    }
-  }
-}
-
-#[derive(Debug)]
-pub struct RObjectUpdate<'a> {
-  pub object_id: RObjectId,
-  pub translate: &'a [f32; 3],
-  pub rotate_axis: &'a [f32; 3],
-  pub rotate_deg: f32,
-  pub scale: &'a [f32; 3],
-  pub visible: bool,
-  pub camera: Option<&'a RCamera>,
-}
-impl Default for RObjectUpdate<'_> {
-  fn default() -> Self {
-    RObjectUpdate {
-      object_id: RObjectId(0, 0),
-      translate: &[0.0, 0.0, 0.0],
-      rotate_axis: &[0.0, 0.0, 1.0],
-      rotate_deg: 0.0,
-      scale: &[1.0, 1.0, 1.0],
-      visible: true,
-      camera: None,
-    }
-  }
-}
-impl<'a> RObjectUpdate<'a> {
-  pub fn from_shape(shape: &'a Shape, camera: Option<&'a RCamera>) -> Self {
-    RObjectUpdate {
-      object_id: shape.id,
-      translate: &shape.position,
-      rotate_axis: &shape.rotate_axis,
-      rotate_deg: shape.rotate_deg,
-      scale: &shape.scale,
-      visible: shape.visible,
-      camera,
-    }
-  }
-}
+use crate::wgpu_renderer::{Mat4, Primitives, Shape, draw_str, RStringInputs, RPipelineSetup, RObjectSetup, RObjectUpdate, RCamera, RCullMode, CameraType};
 
 // -- HELPER STRUCTS --
 #[repr(C)]
@@ -145,49 +51,6 @@ pub struct RObjectId (pub usize, pub usize);
 pub struct RPipelineId (pub usize);
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RTextureId (pub usize);
-
-// helper for defining camera/view matrix
-#[derive(Debug)]
-pub enum CameraType {
-  Orthographic,
-  Perspective,
-}
-
-// helper for defining camera/view matrix
-#[derive(Debug)]
-pub struct RCamera {
-  pub cam_type: CameraType,
-  pub position: [f32; 3],
-  pub look_at: [f32; 3],
-  pub up: [f32; 3],
-  pub fov_y: f32,
-  pub near: f32,
-  pub far: f32,
-}
-impl RCamera {
-  pub fn new_ortho(near: f32, far: f32) -> Self {
-    Self {
-      cam_type: CameraType::Orthographic,
-      position: [0.0, 0.0, 100.0],
-      look_at: [0.0, 0.0, 0.0],
-      up: [0.0, 1.0, 0.0],
-      fov_y: 0.0,
-      near,
-      far,
-    }
-  }
-  pub fn new_persp(fov_y: f32, near: f32, far: f32) -> Self {
-    Self {
-      cam_type: CameraType::Perspective,
-      position: [0.0, 0.0, 100.0],
-      look_at: [0.0, 0.0, 0.0],
-      up: [0.0, 1.0, 0.0],
-      fov_y,
-      near,
-      far,
-    }
-  }
-}
 
 // -- PRIMARY RENDERER INTERFACE --
 #[derive(Debug)]
@@ -763,7 +626,7 @@ impl<'a> Renderer<'a> {
     let texture_id = self.add_texture(self.config.width, self.config.height, None, true);
     // build render pipeline
     let pipeline_id = self.add_pipeline(RPipelineSetup {
-      shader: include_str!("embed_assets/text.wgsl"),
+      shader: include_str!("../embed_assets/text.wgsl"),
       texture1_id: Some(texture_id),
       ..Default::default()
     });
@@ -918,7 +781,7 @@ impl<'a> Renderer<'a> {
     let texture = &mut self.textures[texture_id.0];
     // fetch font data
     if self.font_cache.is_none() { 
-      let font = include_bytes!("embed_assets/roboto.ttf");
+      let font = include_bytes!("../embed_assets/roboto.ttf");
       self.font_cache = Some(font.to_vec());
     }
     let font_data = self.font_cache.as_ref().unwrap();

@@ -1,8 +1,7 @@
 use std::{fs, time, path::Path};
 use rand::{thread_rng, Rng};
 
-use crate::wgpu_root::{RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, Renderer};
-use crate::primitives::{Primitives, Shape};
+use crate::wgpu_renderer::{RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, Renderer, Primitives, Shape};
 use crate::input_mapper::InputHandler;
 
 pub struct AppEventLoop<'a> {
@@ -149,7 +148,7 @@ impl<'a> AppEventLoop<'a> {
     let y_max = (self.screen_center.1 * 2.0) as u32;
 
     // render cubes onto texture
-    self.renderer.render_texture(&self.pipes[0..1], self.textures[1], Some([1.0, 0.0, 0.0, 1.0]));
+    self.renderer.render_texture(&self.pipes[0..1], self.textures[1], Some([0.1, 0.0, 0.3, 1.0]));
     // render text onto texture
     self.renderer.render_texture(&[], self.textures[2], Some([0.0, 0.0, 0.0, 0.0])); // clears texture background
     self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, y_max - 10], 1);
