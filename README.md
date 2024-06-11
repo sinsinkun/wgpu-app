@@ -31,6 +31,8 @@ Rust version: 1.76.0
 - Winit setup independent from app structure
 - Wgpu renderer setup independent from app structure
   - simplified pipeline setup
+  - optional vertex indexing
+  - WGSL instancing with `@builtin(instance_index) idx: u32`
   - resize responsive
   - supports transparency
   - MSAA enabled by default

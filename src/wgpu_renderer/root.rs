@@ -6,7 +6,22 @@ use image::{io::Reader as ImageReader, DynamicImage, GenericImageView};
 use bytemuck::{Pod, Zeroable};
 use wgpu::*;
 
-use crate::wgpu_renderer::{Mat4, Primitives, Shape, draw_str, RStringInputs, RPipelineSetup, RObjectSetup, RObjectUpdate, RCamera, RCullMode, CameraType};
+use crate::wgpu_renderer::{
+  // utils
+  Mat4,
+  Primitives,
+  Shape,
+  CameraType,
+  // input configs
+  RPipelineSetup,
+  RObjectSetup,
+  RObjectUpdate,
+  RCamera,
+  RCullMode,
+  // for text
+  draw_str,
+  RStringInputs,
+};
 
 // -- HELPER STRUCTS --
 #[repr(C)]
