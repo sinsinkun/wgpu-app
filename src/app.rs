@@ -52,6 +52,7 @@ impl<'a> AppEventLoop<'a> {
       texture1_id: Some(texture1),
       texture2_id: Some(texture4),
       max_obj_count: 1000,
+      // cull_mode: RPipelineSetup::CULL_MODE_BACK,
       ..Default::default()
     });
     let pipe2 = match fs::read_to_string("assets/miniview.wgsl") {
@@ -85,7 +86,7 @@ impl<'a> AppEventLoop<'a> {
     self.renderer.render_str_on_texture(texture4, "Marked", 200.0, [255, 0, 0], [40, 450], 10);
 
     // initialize objects
-    let cube_data = Primitives::cube(40.0, 40.0, 40.0);
+    let (cube_data, cube_idx) = Primitives::tube(20.0, 10.0, 30.0, 16);
     for x in 0..10 {
       for y in 0..10 {
         for z in 0..5 {
@@ -93,7 +94,7 @@ impl<'a> AppEventLoop<'a> {
           let ry: f32 = thread_rng().gen_range(-1.0..1.0);
           let rz: f32 = thread_rng().gen_range(-1.0..1.0);
           let s: f32 = thread_rng().gen_range(0.5..1.2);
-          let mut cube = Shape::new(&mut self.renderer, pipe1, cube_data.clone(), None);
+          let mut cube = Shape::new(&mut self.renderer, pipe1, cube_data.clone(), Some(cube_idx.clone()));
           cube.position = [
             -270.0 + x as f32 * 60.0 + rx * 20.0,
             -270.0 + y as f32 * 60.0 + ry * 20.0,

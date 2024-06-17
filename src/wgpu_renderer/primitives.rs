@@ -98,7 +98,7 @@ impl Primitives {
     idx.push(v.len() as u32 - 1); idx.push(v.len() as u32 - 2); idx.push(0);
     idx.push(v.len() as u32 - 1); idx.push(0); idx.push(1);
 
-    return (v, idx);
+    (v, idx)
   }
   // 3d primitives
   pub fn cube(width: f32, height: f32, depth: f32) -> Vec<RVertex> {
@@ -195,5 +195,227 @@ impl Primitives {
       20,21,22,22,23,20, // front
     ];
     (a, b)
+  }
+  pub fn cylinder(radius: f32, height: f32, sides: u32) -> (Vec<RVertex>, Vec<u32>) {
+    let mut v: Vec<RVertex> = vec![];
+    let mut idx: Vec<u32> = vec![];
+    let h: f32 = height / 2.0;
+    // build top/bottom center
+    let top_center = RVertex {
+      position: [0.0, h, 0.0],
+      uv: [0.5, 0.5],
+      normal: [0.0, 1.0, 0.0]
+    };
+    let bot_center = RVertex {
+      position: [0.0, -h, 0.0],
+      uv: [0.5, 0.5],
+      normal: [0.0, 1.0, 0.0]
+    };
+    v.push(top_center);
+    v.push(bot_center);
+    // build top/bottom sides
+    for i in 0..sides {
+      let theta: f32 = 2.0 * PI * (i as f32 / sides as f32);
+      let x: f32 = f32::cos(theta);
+      let z: f32 = f32::sin(theta);
+      let v1 = RVertex {
+        position: [x * radius, h, z * radius],
+        uv: [(1.0 + x) / 2.0, (1.0 + z) / 2.0],
+        normal: [0.0, 1.0, 0.0]
+      };
+      let v2 = RVertex {
+        position: [x * radius, -h, z * radius],
+        uv: [(1.0 + x) / 2.0, (1.0 - z) / 2.0],
+        normal: [0.0, -1.0, 0.0]
+      };
+      v.push(v1);
+      v.push(v2);
+    }
+    // generate indexing
+    for i in 2..v.len() - 2 {
+      if i % 2 == 0 {
+        // top
+        idx.push(i as u32); idx.push(0); idx.push(i as u32 + 2);
+      } else {
+        // bottom
+        idx.push(i as u32); idx.push(i as u32 + 2); idx.push(1);
+      }
+    }
+    idx.push(v.len() as u32 - 2); idx.push(0); idx.push(2);
+    idx.push(v.len() as u32 - 1); idx.push(3); idx.push(1);
+
+    // build sides
+    let new0 = v.len();
+    for i in 0..sides + 1 {
+      let theta: f32 = 2.0 * PI * (i as f32 / sides as f32);
+      let x: f32 = f32::cos(theta);
+      let z: f32 = f32::sin(theta);
+      let v1 = RVertex {
+        position: [x * radius, h, z * radius],
+        uv: [(i as f32 / sides as f32), 1.0],
+        normal: [x, 0.0, z]
+      };
+      let v2 = RVertex {
+        position: [x * radius, -h, z * radius],
+        uv: [(i as f32 / sides as f32), 0.0],
+        normal: [x, 0.0, z]
+      };
+      v.push(v1);
+      v.push(v2);
+    }
+    // generate indexing
+    for i in new0..v.len() - 2 {
+      if i % 2 == 0 {
+        idx.push(i as u32 + 1); idx.push(i as u32); idx.push(i as u32 + 2);
+      } else {
+        idx.push(i as u32); idx.push(i as u32 + 1); idx.push(i as u32 + 2);
+      }
+    }
+
+    (v, idx)
+  }
+  pub fn tube(outer_radius: f32, inner_radius: f32, height: f32, sides: u32) -> (Vec<RVertex>, Vec<u32>) {
+    let mut v: Vec<RVertex> = vec![];
+    let mut idx: Vec<u32> = vec![];
+    let dr: f32 = inner_radius / outer_radius;
+    let h: f32 = height / 2.0;
+
+    // build top/bottom
+    for i in 0..sides {
+      let theta = 2.0 * PI * (i as f32) / (sides as f32);
+      let x: f32 = f32::cos(theta);
+      let z: f32 = f32::sin(theta);
+      let v1 = RVertex {
+        position: [x * outer_radius, h, z * outer_radius],
+        uv: [(1.0 + x)/2.0, (1.0 + z)/2.0],
+        normal: [0.0, 1.0, 0.0]
+      };
+      let v2 = RVertex {
+        position: [x * outer_radius, -h, z * outer_radius],
+        uv: [(1.0 + x)/2.0, (1.0 - z)/2.0],
+        normal: [0.0, -1.0, 0.0]
+      };
+      let v3 = RVertex {
+        position: [x * inner_radius, h, z * inner_radius],
+        uv: [(1.0 + dr * x)/2.0, (1.0 + dr * z)/2.0],
+        normal: [0.0, 1.0, 0.0]
+      };
+      let v4 = RVertex {
+        position: [x * inner_radius, -h, z * inner_radius],
+        uv: [(1.0 + dr * x)/2.0, (1.0 - dr * z)/2.0],
+        normal: [0.0, -1.0, 0.0]
+      };
+      v.push(v1); v.push(v2); v.push(v3); v.push(v4);
+    }
+    // generate indexing
+    for i in (0..v.len() - 5).step_by(2) {
+      if i % 4 == 0 {
+        idx.push(i as u32); idx.push(i as u32 + 2); idx.push(i as u32 + 4);
+        idx.push(i as u32 + 3); idx.push(i as u32 + 1); idx.push(i as u32 + 5);
+      } else {
+        idx.push(i as u32 + 2); idx.push(i as u32); idx.push(i as u32 + 4);
+        idx.push(i as u32 + 1); idx.push(i as u32 + 3); idx.push(i as u32 + 5);
+      }
+    }
+    // join back to first 2 vertices
+    idx.push(v.len() as u32 - 4); idx.push(v.len() as u32 - 2); idx.push(0);
+    idx.push(0); idx.push(v.len() as u32 - 2); idx.push(2);
+    idx.push(v.len() as u32 - 1); idx.push(v.len() as u32 - 3); idx.push(1);
+    idx.push(v.len() as u32 - 1); idx.push(1); idx.push(3);
+
+    // build sides
+    let new0 = v.len();
+    for i in 0..sides+1 {
+      let theta = 2.0 * PI * (i as f32) / (sides as f32);
+      let x: f32 = f32::cos(theta);
+      let z: f32 = f32::sin(theta);
+      let v1 = RVertex {
+        position: [x * outer_radius, h, z * outer_radius],
+        uv: [(i as f32) / (sides as f32), 1.0],
+        normal: [x, 0.0, z]
+      };
+      let v2 = RVertex {
+        position: [x * inner_radius, h, z * inner_radius],
+        uv: [(i as f32) / (sides as f32), 1.0],
+        normal: [x, 0.0, z]
+      };
+      let v3 = RVertex {
+        position: [x * outer_radius, -h, z * outer_radius],
+        uv: [(i as f32) / (sides as f32), 0.0],
+        normal: [x, 0.0, z]
+      };
+      let v4 = RVertex {
+        position: [x * inner_radius, -h, z * inner_radius],
+        uv: [(i as f32) / (sides as f32), 0.0],
+        normal: [x, 0.0, z]
+      };
+      v.push(v1); v.push(v2); v.push(v3); v.push(v4);
+    }
+    for i in (new0..v.len() - 4).step_by(2) {
+      if i % 4 == 0 {
+        idx.push(i as u32 + 2); idx.push(i as u32); idx.push(i as u32 + 4);
+        idx.push(i as u32 + 1); idx.push(i as u32 + 3); idx.push(i as u32 + 5);
+      } else {
+        idx.push(i as u32); idx.push(i as u32 + 2); idx.push(i as u32 + 4);
+        idx.push(i as u32 + 3); idx.push(i as u32 + 1); idx.push(i as u32 + 5);
+      }
+    }
+
+    (v, idx)
+  }
+  pub fn cone(radius: f32, height: f32, sides: u32) -> (Vec<RVertex>, Vec<u32>) {
+    let mut v: Vec<RVertex> = vec![];
+    let mut idx: Vec<u32> = vec![];
+
+    // build top
+    let v0 = RVertex {
+      position: [0.0, height, 0.0],
+      uv: [0.5, 1.0],
+      normal: [0.0, 1.0, 0.0]
+    };
+    v.push(v0);
+    // build sides
+    for i in 0..sides+1 {
+      let theta = 2.0 * PI * (i as f32) / (sides as f32);
+      let x: f32 = f32::cos(theta);
+      let z: f32 = f32::sin(theta);
+      let v1 = RVertex {
+        position: [x * radius, 0.0, z * radius],
+        uv: [(i as f32) / (sides as f32), 0.0],
+        normal: [x, 0.0, z]
+      };
+      v.push(v1);
+    }
+    // generate index
+    for i in 1..v.len() - 1 {
+      idx.push(i as u32 + 1); idx.push(i as u32); idx.push(0);
+    }
+    // build bottom center
+    let v0 = RVertex {
+      position: [0.0, 0.0, 0.0],
+      uv: [0.5, 0.5],
+      normal: [0.0, -1.0, 0.0]
+    };
+    v.push(v0);
+    // build bottom face
+    let new0 = v.len();
+    for i in 0..sides {
+      let theta = 2.0 * PI * (i as f32) / (sides as f32);
+      let x: f32 = f32::cos(theta);
+      let z: f32 = f32::sin(theta);
+      let v1 = RVertex {
+        position: [x * radius, 0.0, z * radius],
+        uv: [(1.0 + x)/2.0, (1.0 - z)/2.0],
+        normal: [0.0, -1.0, 0.0]
+      };
+      v.push(v1);
+    }
+    // generate index
+    for i in new0..v.len() {
+      idx.push(i as u32); idx.push(i as u32 + 1); idx.push(new0 as u32 - 1);
+    }
+    idx.push(v.len() as u32 - 1); idx.push(new0 as u32); idx.push(new0 as u32 - 1);
+
+    (v, idx)
   }
 }
