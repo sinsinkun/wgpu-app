@@ -52,7 +52,7 @@ impl<'a> AppEventLoop<'a> {
       texture1_id: Some(texture1),
       texture2_id: Some(texture4),
       max_obj_count: 1000,
-      // cull_mode: RPipelineSetup::CULL_MODE_BACK,
+      cull_mode: RPipelineSetup::CULL_MODE_BACK,
       ..Default::default()
     });
     let pipe2 = match fs::read_to_string("assets/miniview.wgsl") {

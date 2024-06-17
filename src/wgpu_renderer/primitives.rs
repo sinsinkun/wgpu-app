@@ -107,46 +107,46 @@ impl Primitives {
     let d = depth / 2.0;
     vec![
       // face top
-      RVertex { position: [ w,-h, d], uv: [1.0,0.0], normal: [0.0,1.0,0.0] },
       RVertex { position: [ w,-h,-d], uv: [1.0,1.0], normal: [0.0,1.0,0.0] },
-      RVertex { position: [-w,-h,-d], uv: [0.0,1.0], normal: [0.0,1.0,0.0] },
+      RVertex { position: [ w,-h, d], uv: [1.0,0.0], normal: [0.0,1.0,0.0] },
       RVertex { position: [-w,-h,-d], uv: [0.0,1.0], normal: [0.0,1.0,0.0] },
       RVertex { position: [-w,-h, d], uv: [0.0,0.0], normal: [0.0,1.0,0.0] },
+      RVertex { position: [-w,-h,-d], uv: [0.0,1.0], normal: [0.0,1.0,0.0] },
       RVertex { position: [ w,-h, d], uv: [1.0,0.0], normal: [0.0,1.0,0.0] },
       // face bottom
-      RVertex { position: [ w, h,-d], uv: [1.0,0.0], normal: [0.0,-1.0,0.0] },
       RVertex { position: [ w, h, d], uv: [1.0,1.0], normal: [0.0,-1.0,0.0] },
-      RVertex { position: [-w, h, d], uv: [0.0,1.0], normal: [0.0,-1.0,0.0] },
+      RVertex { position: [ w, h,-d], uv: [1.0,0.0], normal: [0.0,-1.0,0.0] },
       RVertex { position: [-w, h, d], uv: [0.0,1.0], normal: [0.0,-1.0,0.0] },
       RVertex { position: [-w, h,-d], uv: [0.0,0.0], normal: [0.0,-1.0,0.0] },
+      RVertex { position: [-w, h, d], uv: [0.0,1.0], normal: [0.0,-1.0,0.0] },
       RVertex { position: [ w, h,-d], uv: [1.0,0.0], normal: [0.0,-1.0,0.0] },
       // face left
-      RVertex { position: [-w, h, d], uv: [1.0,0.0], normal: [-1.0,0.0,0.0] },
       RVertex { position: [-w,-h, d], uv: [1.0,1.0], normal: [-1.0,0.0,0.0] },
-      RVertex { position: [-w,-h,-d], uv: [0.0,1.0], normal: [-1.0,0.0,0.0] },
+      RVertex { position: [-w, h, d], uv: [1.0,0.0], normal: [-1.0,0.0,0.0] },
       RVertex { position: [-w,-h,-d], uv: [0.0,1.0], normal: [-1.0,0.0,0.0] },
       RVertex { position: [-w, h,-d], uv: [0.0,0.0], normal: [-1.0,0.0,0.0] },
+      RVertex { position: [-w,-h,-d], uv: [0.0,1.0], normal: [-1.0,0.0,0.0] },
       RVertex { position: [-w, h, d], uv: [1.0,0.0], normal: [-1.0,0.0,0.0] },
       // face right
-      RVertex { position: [ w, h,-d], uv: [1.0,0.0], normal: [1.0,0.0,0.0] },
       RVertex { position: [ w,-h,-d], uv: [1.0,1.0], normal: [1.0,0.0,0.0] },
-      RVertex { position: [ w,-h, d], uv: [0.0,1.0], normal: [1.0,0.0,0.0] },
+      RVertex { position: [ w, h,-d], uv: [1.0,0.0], normal: [1.0,0.0,0.0] },
       RVertex { position: [ w,-h, d], uv: [0.0,1.0], normal: [1.0,0.0,0.0] },
       RVertex { position: [ w, h, d], uv: [0.0,0.0], normal: [1.0,0.0,0.0] },
+      RVertex { position: [ w,-h, d], uv: [0.0,1.0], normal: [1.0,0.0,0.0] },
       RVertex { position: [ w, h,-d], uv: [1.0,0.0], normal: [1.0,0.0,0.0] },
       // face back
-      RVertex { position: [-w, h,-d], uv: [0.0,1.0], normal: [0.0,0.0,-1.0] },
       RVertex { position: [-w,-h,-d], uv: [0.0,0.0], normal: [0.0,0.0,-1.0] },
-      RVertex { position: [ w,-h,-d], uv: [1.0,0.0], normal: [0.0,0.0,-1.0] },
+      RVertex { position: [-w, h,-d], uv: [0.0,1.0], normal: [0.0,0.0,-1.0] },
       RVertex { position: [ w,-h,-d], uv: [1.0,0.0], normal: [0.0,0.0,-1.0] },
       RVertex { position: [ w, h,-d], uv: [1.0,1.0], normal: [0.0,0.0,-1.0] },
+      RVertex { position: [ w,-h,-d], uv: [1.0,0.0], normal: [0.0,0.0,-1.0] },
       RVertex { position: [-w, h,-d], uv: [0.0,1.0], normal: [0.0,0.0,-1.0] },
       // face front
-      RVertex { position: [ w, h, d], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
       RVertex { position: [ w,-h, d], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [-w,-h, d], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [ w, h, d], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
       RVertex { position: [-w,-h, d], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
       RVertex { position: [-w, h, d], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [-w,-h, d], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
       RVertex { position: [ w, h, d], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
     ]
   }
@@ -187,12 +187,12 @@ impl Primitives {
       RVertex { position: [-w, h, d], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
     ];
     let b = vec![
-      0,1,2,2,3,0, // top
-      4,5,6,6,7,4, // bottom
-      8,9,10,10,11,8, // left
-      12,13,14,14,15,12, // right
-      16,17,18,18,19,16, // back
-      20,21,22,22,23,20, // front
+      1,0,2,3,2,0, // top
+      5,4,6,7,6,4, // bottom
+      9,8,10,11,10,8, // left
+      13,12,14,15,14,12, // right
+      17,16,18,19,18,16, // back
+      21,20,22,23,22,20, // front
     ];
     (a, b)
   }
