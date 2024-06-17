@@ -36,15 +36,8 @@ impl Shape {
 
 // helper for defining camera/view matrix
 #[derive(Debug)]
-pub enum CameraType {
-  Orthographic,
-  Perspective,
-}
-
-// helper for defining camera/view matrix
-#[derive(Debug)]
 pub struct RCamera {
-  pub cam_type: CameraType,
+  pub cam_type: u8,
   pub position: [f32; 3],
   pub look_at: [f32; 3],
   pub up: [f32; 3],
@@ -53,9 +46,11 @@ pub struct RCamera {
   pub far: f32,
 }
 impl RCamera {
+  pub const ORTHOGRAPHIC: u8 = 1;
+  pub const PERSPECTIVE: u8 = 2;
   pub fn new_ortho(near: f32, far: f32) -> Self {
     Self {
-      cam_type: CameraType::Orthographic,
+      cam_type: RCamera::ORTHOGRAPHIC,
       position: [0.0, 0.0, 100.0],
       look_at: [0.0, 0.0, 0.0],
       up: [0.0, 1.0, 0.0],
@@ -66,7 +61,7 @@ impl RCamera {
   }
   pub fn new_persp(fov_y: f32, near: f32, far: f32) -> Self {
     Self {
-      cam_type: CameraType::Perspective,
+      cam_type: RCamera::PERSPECTIVE,
       position: [0.0, 0.0, 100.0],
       look_at: [0.0, 0.0, 0.0],
       up: [0.0, 1.0, 0.0],
@@ -79,25 +74,26 @@ impl RCamera {
 
 // helper for building new pipeline
 #[derive(Debug)]
-pub enum RUniformVisibility { Vertex, Fragment, Both }
-#[derive(Debug)]
 pub struct RUniformSetup {
   pub bind_slot: u32,
-  pub visibility: RUniformVisibility,
+  pub visibility: u8,
   pub size_in_bytes: u32,
 }
-#[derive(Debug)]
-pub enum RCullMode { None, Front, Back }
+impl RUniformSetup {
+  pub const VISIBILITY_VERTEX: u8 = 1;
+  pub const VISIBILITY_FRAGMENT: u8 = 2;
+  pub const VISIBILITY_BOTH: u8 = 0;
+}
 #[derive(Debug)]
 pub struct RPipelineSetup<'a> {
   pub shader: &'a str,
   pub max_obj_count: usize,
   pub texture1_id: Option<RTextureId>,
   pub texture2_id: Option<RTextureId>,
-  pub cull_mode: RCullMode,
+  pub cull_mode: u8,
   pub vertex_fn: &'a str,
   pub fragment_fn: &'a str,
-  // pub uniforms: Vec<RUniformSetup>,
+  pub uniforms: Vec<RUniformSetup>,
 }
 impl Default for RPipelineSetup<'_> {
   fn default() -> Self {
@@ -106,12 +102,17 @@ impl Default for RPipelineSetup<'_> {
         max_obj_count: 10,
         texture1_id: None,
         texture2_id: None,
-        cull_mode: RCullMode::None,
+        cull_mode: RPipelineSetup::CULL_MODE_NONE,
         vertex_fn: "vertexMain",
         fragment_fn: "fragmentMain",
-        // uniforms: Vec::new(),
+        uniforms: Vec::new(),
       }
   }
+}
+impl RPipelineSetup<'_> {
+  pub const CULL_MODE_NONE: u8 = 0;
+  pub const CULL_MODE_BACK: u8 = 1;
+  pub const CULL_MODE_FRONT: u8 = 2;
 }
 
 // helper for building new render object
@@ -143,6 +144,7 @@ pub struct RObjectUpdate<'a> {
   pub scale: &'a [f32; 3],
   pub visible: bool,
   pub camera: Option<&'a RCamera>,
+  pub uniforms: Vec<&'a [u8]>
 }
 impl Default for RObjectUpdate<'_> {
   fn default() -> Self {
@@ -154,11 +156,16 @@ impl Default for RObjectUpdate<'_> {
       scale: &[1.0, 1.0, 1.0],
       visible: true,
       camera: None,
+      uniforms: Vec::new(),
     }
   }
 }
 impl<'a> RObjectUpdate<'a> {
-  pub fn from_shape(shape: &'a Shape, camera: Option<&'a RCamera>) -> Self {
+  pub fn from_shape(shape: &'a Shape, camera: Option<&'a RCamera>, uniforms: Option<Vec<&'a [u8]>>) -> Self {
+    let u: Vec<&'a [u8]> = match uniforms {
+      Some(x) => x,
+      None => Vec::new()
+    };
     RObjectUpdate {
       object_id: shape.id,
       translate: &shape.position,
@@ -167,6 +174,7 @@ impl<'a> RObjectUpdate<'a> {
       scale: &shape.scale,
       visible: shape.visible,
       camera,
+      uniforms: u
     }
   }
 }

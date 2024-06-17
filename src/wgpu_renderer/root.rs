@@ -11,13 +11,12 @@ use crate::wgpu_renderer::{
   Mat4,
   Primitives,
   Shape,
-  CameraType,
   // input configs
   RPipelineSetup,
+  RUniformSetup,
   RObjectSetup,
   RObjectUpdate,
   RCamera,
-  RCullMode,
   // for text
   draw_str,
   RStringInputs,
@@ -55,7 +54,7 @@ pub struct RPipeline {
   objects: Vec<RObject>,
   max_obj_count: usize,
   bind_group0: RBindGroup,
-  // bind_group1: Option<RBindGroup>,
+  bind_group1: Option<RBindGroup>,
   // bind_group2: Option<RBindGroup>,
   // bind_group3: Option<RBindGroup>,
 }
@@ -383,9 +382,9 @@ impl<'a> Renderer<'a> {
 
     // translate cullmode
     let cull_mode: Option<Face> = match setup.cull_mode {
-      RCullMode::None => None,
-      RCullMode::Back => Some(Face::Back),
-      RCullMode::Front => Some(Face::Front)
+      1 => Some(Face::Back),
+      2 => Some(Face::Front),
+      _ => None
     };
 
     // build render pipeline
@@ -394,7 +393,7 @@ impl<'a> Renderer<'a> {
       source: ShaderSource::Wgsl(setup.shader.into()),
     });
     let bind_group0_layout = self.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-      label: Some("bind-group-layout"),
+      label: Some("bind-group0-layout"),
       entries: &[
         // mvp matrix
         BindGroupLayoutEntry {
@@ -438,9 +437,38 @@ impl<'a> Renderer<'a> {
         },
       ]
     });
+    let mut bind_group_container: Vec<&BindGroupLayout> = vec![&bind_group0_layout];
+    // build custom bind group layout
+    let bind_group1_layout: BindGroupLayout;
+    if setup.uniforms.len() > 0 {
+      let mut entries: Vec<BindGroupLayoutEntry> = Vec::new();
+      // add bind group entries to layout
+      for u in &setup.uniforms {
+        let visibility = match u.visibility {
+          1 => ShaderStages::VERTEX,
+          2 => ShaderStages::FRAGMENT,
+          _ => ShaderStages::VERTEX_FRAGMENT,
+        };
+        entries.push(BindGroupLayoutEntry {
+          binding: u.bind_slot,
+          visibility,
+          ty: BindingType::Buffer { 
+            ty: BufferBindingType::Uniform,
+            has_dynamic_offset: true,
+            min_binding_size: None,
+          },
+          count: None
+        });
+      }
+      bind_group1_layout = self.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        label: Some("bind-group0-layout"),
+        entries: &entries.as_slice()
+      });
+      bind_group_container.push(&bind_group1_layout);
+    }
     let pipeline_layout = self.device.create_pipeline_layout(&PipelineLayoutDescriptor {
       label: Some("pipeline-layout"),
-      bind_group_layouts: &[&bind_group0_layout],
+      bind_group_layouts: bind_group_container.as_slice(),
       push_constant_ranges: &[]
     });
     let pipeline = self.device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -496,14 +524,19 @@ impl<'a> Renderer<'a> {
       multiview: None,
     });
 
-    // build bind group
+    // build bind groups
     let bind_group0: RBindGroup = self.add_bind_group0(&pipeline, setup.max_obj_count, setup.texture1_id, setup.texture2_id);
+    let mut bind_group1: Option<RBindGroup> = None;
+    if setup.uniforms.len() > 0 {
+      bind_group1 = Some(self.add_bind_group1(&pipeline, setup.max_obj_count, setup.uniforms));
+    }
     // add to cache
     let pipe = RPipeline {
       pipe: pipeline,
       objects: Vec::new(),
       max_obj_count: setup.max_obj_count,
       bind_group0,
+      bind_group1,
     };
     self.pipelines.push(pipe);
     RPipelineId(id)
@@ -594,7 +627,7 @@ impl<'a> Renderer<'a> {
       entries: vec![mvp_buffer]
     }
   }
-  #[cfg(never)] // unused method
+
   fn add_bind_group1(
     &self,
     pipeline: &RenderPipeline,
@@ -718,8 +751,9 @@ impl<'a> Renderer<'a> {
     let w2 = (self.config.width / 2) as f32;
     let h2 = (self.config.height / 2) as f32;
     let proj = match cam.cam_type {
-      CameraType::Orthographic => Mat4::ortho(-w2, w2, h2, -h2, cam.near, cam.far),
-      CameraType::Perspective => Mat4::perspective(cam.fov_y, w2/h2, cam.near, cam.far)
+      1 => Mat4::ortho(-w2, w2, h2, -h2, cam.near, cam.far),
+      2 => Mat4::perspective(cam.fov_y, w2/h2, cam.near, cam.far),
+      _ => Mat4::identity()
     };
     // merge together
     let mut mvp: [f32; 48] = [0.0; 48]; // 16 * 3 = 48
@@ -734,6 +768,18 @@ impl<'a> Renderer<'a> {
       (stride * obj.pipe_index as u32) as u64, 
       bytemuck::cast_slice(&mvp)
     );
+    // update custom uniforms
+    if update.uniforms.len() > 0 {
+      if let Some(bind_group1) = &pipe.bind_group1 {
+        for (i, uniform) in update.uniforms.iter().enumerate() {
+          self.queue.write_buffer(
+            &bind_group1.entries[i],
+            (stride * obj.pipe_index as u32) as u64,
+            *uniform
+          );
+        }
+      }
+    }
   }
 
   pub fn render_texture(&mut self, pipeline_ids: &[RPipelineId], target_id: RTextureId, clear_color: Option<[f64;4]>) {
@@ -780,6 +826,9 @@ impl<'a> Renderer<'a> {
           pass.set_pipeline(&pipeline.pipe);
           pass.set_vertex_buffer(0, obj.v_buffer.slice(..));
           pass.set_bind_group(0, &pipeline.bind_group0.base, &[stride]);
+          if let Some(bind_group1) = &pipeline.bind_group1 {
+            pass.set_bind_group(1, &bind_group1.base, &[stride]);
+          }
           if let Some(i_buffer) = &obj.index_buffer {
             pass.set_index_buffer(i_buffer.slice(..), IndexFormat::Uint32);
             pass.draw_indexed(0..obj.index_count, 0, 0..obj.instances);
@@ -858,6 +907,9 @@ impl<'a> Renderer<'a> {
           pass.set_pipeline(&pipeline.pipe);
           pass.set_vertex_buffer(0, obj.v_buffer.slice(..));
           pass.set_bind_group(0, &pipeline.bind_group0.base, &[stride]);
+          if let Some(bind_group1) = &pipeline.bind_group1 {
+            pass.set_bind_group(1, &bind_group1.base, &[stride]);
+          }
           if let Some(i_buffer) = &obj.index_buffer {
             pass.set_index_buffer(i_buffer.slice(..), IndexFormat::Uint32);
             pass.draw_indexed(0..obj.index_count, 0, 0..obj.instances);

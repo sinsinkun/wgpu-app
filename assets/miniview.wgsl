@@ -3,6 +3,8 @@
 @group(0) @binding(2) var texture1: texture_2d<f32>;
 @group(0) @binding(3) var texture2: texture_2d<f32>;
 
+@group(1) @binding(0) var<uniform> win_size: vec2f;
+
 struct MVP {
   model: mat4x4<f32>,
   view: mat4x4<f32>,
@@ -35,7 +37,7 @@ fn vertexMain(input: VertIn) -> VertOut {
 fn fragmentMain(input: VertOut) -> @location(0) vec4f {
   var out = textureSample(texture1, txSampler, input.uv);
   let y_border = 0.015;
-  let x_border = y_border * 3 / 4; // h/w ratio
+  let x_border = y_border * win_size.y / win_size.x;
   if (input.uv.x < x_border || input.uv.x > 1.0 - x_border || input.uv.y < y_border || input.uv.y > 1.0 - y_border) {
     out = vec4f(0.8, 0.0, 0.0, 1.0);
   }

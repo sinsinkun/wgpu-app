@@ -4,14 +4,13 @@ Scaffolding for creating a general native app using a wgpu renderer.
 Rendering logic and window handling are separated from app logic,
 allowing for better compartmentalization.
 
-Due to the nature of rust's restrictive type system, it is difficult to implement 
-a custom solution for creating updateable uniform buffers in bind groups with dynamic 
-allowances for the buffer data type (i.e. f32 array, f32 value, u32 value, custom struct). 
-
 Built-in support for common rendering utilities like MVP matrix, camera control,
 MSAA filtering, z-buffer, texture render target, basic shape primitives, and more. 
 
-Note: does not support compiling to wasm for browsers
+Note 1: does not support compiling to wasm for browsers
+
+Note 2: custom uniforms need to be converted to raw `&[u8]` byte data for consumption,
+with a max size of 256 bytes (equivalent to 64 f32 values)
 
 <img src="assets/screenshot.png" width="500px" />
 
@@ -39,6 +38,7 @@ Rust version: 1.76.0
   - depth buffer z-indexing enabled by default
   - MVP transforms pre-built
   - supports rendering to texture
+  - supports custom uniforms
 - Text renderer built on top of custom renderer
 - Input handler middleware interface
   - supports key binding

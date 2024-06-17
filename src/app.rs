@@ -1,7 +1,7 @@
 use std::{fs, time, path::Path};
 use rand::{thread_rng, Rng};
 
-use crate::wgpu_renderer::{RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, Renderer, Primitives, Shape};
+use crate::wgpu_renderer::{Primitives, RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, RUniformSetup, Renderer, Shape};
 use crate::input_mapper::InputHandler;
 
 pub struct AppEventLoop<'a> {
@@ -54,12 +54,19 @@ impl<'a> AppEventLoop<'a> {
       max_obj_count: 1000,
       ..Default::default()
     });
-    let pipe2 = match fs::read_to_string("assets/test.wgsl") {
+    let pipe2 = match fs::read_to_string("assets/miniview.wgsl") {
       Ok(str) => { 
         self.renderer.add_pipeline(RPipelineSetup {
           shader: &str,
           max_obj_count: 1,
           texture1_id: Some(texture2),
+          uniforms: vec![
+            RUniformSetup {
+              bind_slot: 0,
+              visibility: RUniformSetup::VISIBILITY_FRAGMENT,
+              size_in_bytes: 8
+            }
+          ],
           ..Default::default()
         })
       }
@@ -128,10 +135,13 @@ impl<'a> AppEventLoop<'a> {
       if obj.id.0 == 1 {
         obj.position = [-self.screen_center.0 * 0.75, self.screen_center.1 * 0.75, 0.0];
         obj.scale = [self.screen_center.0, self.screen_center.1, 1.0];
-        self.renderer.update_object(RObjectUpdate::from_shape(obj, None));
+        let win_size = vec![self.screen_center.0, self.screen_center.1];
+        self.renderer.update_object(RObjectUpdate::from_shape(obj, None, Some(vec![
+          bytemuck::cast_slice(&win_size)
+        ])));
       } else {
         obj.rotate_deg = self.frame as f32;
-        self.renderer.update_object(RObjectUpdate::from_shape(obj, Some(&self.camera)));
+        self.renderer.update_object(RObjectUpdate::from_shape(obj, Some(&self.camera), None));
       }
     }
   }
