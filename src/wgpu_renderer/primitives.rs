@@ -5,6 +5,102 @@ use crate::wgpu_renderer::{RVertex, PI};
 // note: uv_y is inverted
 pub struct Primitives;
 impl Primitives {
+  // util functions
+  pub fn flip_uv_y(input: &mut Vec<RVertex>) {
+    for v in input {
+      v.uv[1] = 1.0 - v.uv[1];
+    }
+  }
+  // 2d primitives
+  pub fn rect(width: f32, height: f32, z_index: f32) -> Vec<RVertex> {
+    let w = width / 2.0;
+    let h = height / 2.0;
+    vec![
+      RVertex { position: [-w, -h, z_index], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [w, -h, z_index], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [w, h, z_index], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [w, h, z_index], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [-w, h, z_index], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [-w, -h, z_index], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
+    ]
+  }
+  pub fn rect_indexed(width: f32, height: f32, z_index: f32) -> (Vec<RVertex>, Vec<u32>) {
+    let w = width / 2.0;
+    let h = height / 2.0;
+    let a = vec![
+      RVertex { position: [-w, -h, z_index], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [w, -h, z_index], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [w, h, z_index], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
+      RVertex { position: [-w, h, z_index], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
+    ];
+    let b = vec![0,1,2,2,3,0];
+    (a, b)
+  }
+  pub fn reg_polygon(radius:f32, sides:u32, z_index:f32) -> Vec<RVertex> {
+    let mut v: Vec<RVertex> = vec![];
+    let da = 2.0 * PI / sides as f32;
+
+    // build polygon
+    let mut x0 = 1.0;
+    let mut y0 = 0.0;
+    for _ in 0..sides {
+      let x1 = f32::cos(da) * x0 - f32::sin(da) * y0;
+      let y1 = f32::cos(da) * y0 + f32::sin(da) * x0;
+      // build slice
+      let p1 = [x0 * radius, y0 * radius, z_index];
+      let p2 = [x1 * radius, y1 * radius, z_index];
+      let p3 = [0.0, 0.0, z_index];
+      let u1 = [(1.0 + x0)/2.0, 1.0 - (1.0 + y0)/2.0];
+      let u2 = [(1.0 + x1)/2.0, 1.0 - (1.0 + y1)/2.0];
+      let u3 = [0.5, 0.5];
+      // build arrays
+      v.push(RVertex{ position:p1, uv:u1, normal:[0.0, 0.0, 1.0] });
+      v.push(RVertex{ position:p2, uv:u2, normal:[0.0, 0.0, 1.0] });
+      v.push(RVertex{ position:p3, uv:u3, normal:[0.0, 0.0, 1.0] });
+      // prepare next slice
+      x0 = x1;
+      y0 = y1;
+    }
+    
+    v
+  }
+  pub fn torus_2d(outer_radius:f32, inner_radius:f32, sides: u32, z_index:f32) -> (Vec<RVertex>, Vec<u32>) {
+    let mut v: Vec<RVertex> = vec![];
+    let mut idx: Vec<u32> = vec![];
+    let dr = inner_radius / outer_radius;
+    // build points
+    for i in 0..sides {
+      let theta = 2.0 * PI * (i as f32) / (sides as f32);
+      let x: f32 = f32::cos(theta);
+      let y: f32 = f32::sin(theta);
+      let v1 = RVertex {
+        position: [x * outer_radius, y * outer_radius, z_index],
+        uv: [(1.0 + x)/2.0, (1.0 + y)/2.0],
+        normal: [0.0,0.0,1.0]
+      };
+      let v2 = RVertex {
+        position: [x * inner_radius, y * inner_radius, z_index],
+        uv: [(1.0 + dr * x)/2.0, (1.0 + dr * y)/2.0],
+        normal: [0.0,0.0,1.0]
+      };
+      v.push(v1);
+      v.push(v2);
+    }
+    // build index
+    for i in 0..v.len() - 2 {
+      if i % 2 == 0 {
+        idx.push(i as u32 + 1); idx.push(i as u32); idx.push(i as u32 + 2);
+      } else {
+        idx.push(i as u32); idx.push(i as u32 + 1); idx.push(i as u32 + 2);
+      }
+    }
+    // join back to first 2 vertices
+    idx.push(v.len() as u32 - 1); idx.push(v.len() as u32 - 2); idx.push(0);
+    idx.push(v.len() as u32 - 1); idx.push(0); idx.push(1);
+
+    return (v, idx);
+  }
+  // 3d primitives
   pub fn cube(width: f32, height: f32, depth: f32) -> Vec<RVertex> {
     let w = width /2.0;
     let h = height / 2.0;
@@ -99,62 +195,5 @@ impl Primitives {
       20,21,22,22,23,20, // front
     ];
     (a, b)
-  }
-  pub fn rect(width: f32, height: f32, z_index: f32) -> Vec<RVertex> {
-    let w = width / 2.0;
-    let h = height / 2.0;
-    vec![
-      RVertex { position: [-w, -h, z_index], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [w, -h, z_index], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [w, h, z_index], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [w, h, z_index], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [-w, h, z_index], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [-w, -h, z_index], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
-    ]
-  }
-  pub fn rect_indexed(width: f32, height: f32, z_index: f32) -> (Vec<RVertex>, Vec<u32>) {
-    let w = width / 2.0;
-    let h = height / 2.0;
-    let a = vec![
-      RVertex { position: [-w, -h, z_index], uv: [0.0,1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [w, -h, z_index], uv: [1.0,1.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [w, h, z_index], uv: [1.0,0.0], normal: [0.0,0.0,1.0] },
-      RVertex { position: [-w, h, z_index], uv: [0.0,0.0], normal: [0.0,0.0,1.0] },
-    ];
-    let b = vec![0,1,2,2,3,0];
-    (a, b)
-  }
-  pub fn reg_polygon(radius:f32, sides:u32, z_index:f32) -> Vec<RVertex> {
-    let mut v: Vec<RVertex> = vec![];
-    let da = 2.0 * PI / sides as f32;
-
-    // build polygon
-    let mut x0 = 1.0;
-    let mut y0 = 0.0;
-    for _ in 0..sides {
-      let x1 = f32::cos(da) * x0 - f32::sin(da) * y0;
-      let y1 = f32::cos(da) * y0 + f32::sin(da) * x0;
-      // build slice
-      let p1 = [x0 * radius, y0 * radius, z_index];
-      let p2 = [x1 * radius, y1 * radius, z_index];
-      let p3 = [0.0, 0.0, z_index];
-      let u1 = [(1.0 + x0)/2.0, 1.0 - (1.0 + y0)/2.0];
-      let u2 = [(1.0 + x1)/2.0, 1.0 - (1.0 + y1)/2.0];
-      let u3 = [0.5, 0.5];
-      // build arrays
-      v.push(RVertex{ position:p1, uv:u1, normal:[0.0, 0.0, 1.0] });
-      v.push(RVertex{ position:p2, uv:u2, normal:[0.0, 0.0, 1.0] });
-      v.push(RVertex{ position:p3, uv:u3, normal:[0.0, 0.0, 1.0] });
-      // prepare next slice
-      x0 = x1;
-      y0 = y1;
-    }
-    
-    v
-  }
-  pub fn flip_uv_y(input: &mut Vec<RVertex>) {
-    for v in input {
-      v.uv[1] = 1.0 - v.uv[1];
-    }
   }
 }
