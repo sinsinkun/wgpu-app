@@ -925,4 +925,36 @@ impl<'a> Renderer<'a> {
 
     Ok(())
   }
+
+  pub fn destroy(&mut self, destroy_renderer: bool) {
+    // destroy textures
+    for tx in &mut self.textures {
+      tx.destroy();
+    }
+    self.textures.clear();
+    // destroy pipeline buffers
+    for pipe in &mut self.pipelines {
+      for obj in &mut pipe.objects {
+        obj.v_buffer.destroy();
+        if let Some(ibf) = &mut obj.index_buffer {
+          ibf.destroy();
+        }
+      }
+      for bf in &mut pipe.bind_group0.entries {
+        bf.destroy();
+      }
+      if let Some(bg1) = &mut pipe.bind_group1 {
+        for bf in &mut bg1.entries {
+          bf.destroy();
+        }
+      }
+    }
+    self.pipelines.clear();
+    // destroy device
+    if destroy_renderer {
+      self.msaa.destroy();
+      self.zbuffer.destroy();
+      self.device.destroy();
+    }
+  }
 }
