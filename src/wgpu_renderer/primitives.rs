@@ -418,4 +418,138 @@ impl Primitives {
 
     (v, idx)
   }
+  pub fn sphere(radius: f32, sides: u32, slices: u32) -> (Vec<RVertex>, Vec<u32>) {
+    let mut v: Vec<RVertex> = vec![];
+    let mut idx: Vec<u32> = vec![];
+
+    // add top point
+    let v0 = RVertex {
+      position: [0.0, radius, 0.0],
+      uv: [0.5, 0.5],
+      normal: [0.0, 1.0, 0.0]
+    };
+    v.push(v0);
+    // add points per slice
+    for i in 0..slices - 1 {
+      let phi: f32 = PI * (i + 1) as f32 / slices as f32;
+      for j in 0..sides {
+        let theta: f32 = 2.0 * PI * j as f32 / sides as f32;
+        let x = f32::sin(phi) * f32::cos(theta);
+        let y = f32::cos(phi);
+        let z = f32::sin(phi) * f32::sin(theta);
+        let v1 = RVertex {
+          position: [x * radius, y * radius, z * radius],
+          uv: [(1.0 + x)/2.0, (1.0 + z)/2.0],
+          normal: [x, y, z]
+        };
+        v.push(v1);
+      }
+    }
+    // add bottom point
+    let v0 = RVertex {
+      position: [0.0, -radius, 0.0],
+      uv: [0.5, 0.5],
+      normal: [0.0, -1.0, 0.0]
+    };
+    v.push(v0);
+    // generate top/bottom index
+    for i in 0..sides {
+      let mut i0: u32 = i + 1;
+      let mut i1: u32 = (i + 1) % sides + 1;
+      idx.push(0); idx.push(i1); idx.push(i0);
+      i0 = i + sides * (slices - 2) + 1;
+      i1 = (i + 1) % sides + sides * (slices - 2) + 1;
+      idx.push(v.len() as u32 - 1); idx.push(i0); idx.push(i1);
+    }
+    // generate slice indices
+    for j in 0..slices - 2 {
+      let j0: u32 = j * sides + 1;
+      let j1: u32 = (j + 1) * sides + 1;
+      for i in 0..sides {
+        let i0: u32 = j0 + i;
+        let i1: u32 = j0 + (i + 1) % sides;
+        let i2: u32 = j1 + (i + 1) % sides;
+        let i3: u32 = j1 + i;
+        idx.push(i0); idx.push(i1); idx.push(i2);
+        idx.push(i2); idx.push(i3); idx.push(i0);
+      }
+    }
+
+    (v, idx)
+  }
+  pub fn hemisphere(radius: f32, sides: u32, slices: u32) -> (Vec<RVertex>, Vec<u32>) {
+    let mut v: Vec<RVertex> = vec![];
+    let mut idx: Vec<u32> = vec![];
+
+    // add top point
+    let v0 = RVertex {
+      position: [0.0, radius, 0.0],
+      uv: [0.5, 0.5],
+      normal: [0.0, 1.0, 0.0]
+    };
+    v.push(v0);
+    // generate points per slice
+    for i in 0..slices {
+      let phi: f32 = PI * (i + 1) as f32 / (2 * slices) as f32;
+      for j in 0..sides {
+        let theta: f32 = 2.0 * PI * j as f32 / sides as f32;
+        let x = f32::sin(phi) * f32::cos(theta);
+        let y = f32::cos(phi);
+        let z = f32::sin(phi) * f32::sin(theta);
+        let v1 = RVertex {
+          position: [x * radius, y * radius, z * radius],
+          uv: [(1.0 + x)/2.0, (1.0 + z)/2.0],
+          normal: [x, y, z]
+        };
+        v.push(v1);
+      }
+    }
+    // generate top index
+    for i in 0..sides {
+      let i0 = i + 1;
+      let i1 = (i + 1) % sides + 1;
+      idx.push(0); idx.push(i1); idx.push(i0);
+    }
+    // generate slice indices
+    for j in 0..slices-1 {
+      let j0 = j * sides + 1;
+      let j1 = (j + 1) * sides + 1;
+      for i in 0..sides {
+        let i0: u32 = j0 + i;
+        let i1: u32 = j0 + (i + 1) % sides;
+        let i2: u32 = j1 + (i + 1) % sides;
+        let i3: u32 = j1 + i;
+        idx.push(i0); idx.push(i1); idx.push(i2);
+        idx.push(i2); idx.push(i3); idx.push(i0);
+      }
+    }
+    // generate bottom face
+    let new0: u32 = v.len() as u32;
+    for i in 0..sides {
+      let theta: f32 = 2.0 * PI * i as f32 / sides as f32;
+      let x = f32::cos(theta);
+      let z = f32::sin(theta);
+      let v1 = RVertex {
+        position: [x * radius, 0.0, z * radius],
+        uv: [(1.0 + x)/2.0, (1.0 - z)/2.0],
+        normal: [0.0, -1.0, 0.0]
+      };
+      v.push(v1);
+    }
+    // add bottom point
+    let v0 = RVertex {
+      position: [0.0, 0.0, 0.0],
+      uv: [0.5, 0.5],
+      normal: [0.0, -1.0, 0.0]
+    };
+    v.push(v0);
+    let c: u32 = (v.len() - 1) as u32;
+    // generate index
+    for i in 0..sides-1 {
+      idx.push(c); idx.push(new0 + i); idx.push(new0 + i + 1);
+    }
+    idx.push(c); idx.push(c - 1); idx.push(new0);
+
+    (v, idx)
+  }
 }

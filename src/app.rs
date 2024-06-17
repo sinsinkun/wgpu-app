@@ -86,7 +86,7 @@ impl<'a> AppEventLoop<'a> {
     self.renderer.render_str_on_texture(texture4, "Marked", 200.0, [255, 0, 0], [40, 450], 10);
 
     // initialize objects
-    let (cube_data, cube_idx) = Primitives::tube(20.0, 10.0, 30.0, 16);
+    let (cube_data, cube_idx) = Primitives::hemisphere(20.0, 32, 16);
     for x in 0..10 {
       for y in 0..10 {
         for z in 0..5 {
