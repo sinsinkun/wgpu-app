@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+
 mod root;
 pub use root::*;
 
@@ -12,3 +14,6 @@ pub use lin_alg::*;
 
 mod util;
 pub use util::*;
+
+mod model_loader;
+pub use model_loader::*;

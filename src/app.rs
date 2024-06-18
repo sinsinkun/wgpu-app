@@ -1,7 +1,7 @@
 use std::{fs, time, path::Path};
 use rand::{thread_rng, Rng};
 
-use crate::wgpu_renderer::{Primitives, RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, RUniformSetup, Renderer, Shape};
+use crate::wgpu_renderer::{ModelLoader, Primitives, RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, RUniformSetup, Renderer, Shape};
 use crate::input_mapper::InputHandler;
 
 pub struct AppEventLoop<'a> {
@@ -85,6 +85,12 @@ impl<'a> AppEventLoop<'a> {
     let (texture3, pipe3) = self.renderer.add_overlay_pipeline();
     self.renderer.render_str_on_texture(texture4, "Marked", 200.0, [255, 0, 0], [40, 450], 10);
 
+    let pipe4 = self.renderer.add_pipeline(RPipelineSetup {
+      max_obj_count: 10,
+      cull_mode: RPipelineSetup::CULL_MODE_BACK,
+      ..Default::default()
+    });
+
     // initialize objects
     let (cube_data, cube_idx) = Primitives::hemisphere(20.0, 32, 16);
     for x in 0..10 {
@@ -107,6 +113,18 @@ impl<'a> AppEventLoop<'a> {
       }
     }
 
+    match ModelLoader::load_obj("assets/monkey.obj") {
+      Ok(model) => {
+        let mut shape = Shape::new(&mut self.renderer, pipe4, model, None);
+        shape.rotate_axis = [0.0, 1.0, 0.0];
+        shape.scale = [30.0, 30.0, 30.0];
+        self.shapes.push(shape);
+      }
+      Err(e) => {
+        println!("Could not load model {:?}", e);
+      }
+    };
+
     let (rect_data, rect_i) = Primitives::rect_indexed(0.5, 0.5, 0.0);
     let rect = Shape::new(&mut self.renderer, pipe2, rect_data, Some(rect_i));
     self.shapes.push(rect);
@@ -115,6 +133,7 @@ impl<'a> AppEventLoop<'a> {
     self.pipes.push(pipe1);
     self.pipes.push(pipe2);
     self.pipes.push(pipe3);
+    self.pipes.push(pipe4);
     self.textures.push(texture1);
     self.textures.push(texture2);
     self.textures.push(texture3);

@@ -24,7 +24,7 @@ use crate::wgpu_renderer::{
 
 // -- HELPER STRUCTS --
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+#[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
 pub struct RVertex {
   pub position: [f32; 3],
   pub uv: [f32; 2],
