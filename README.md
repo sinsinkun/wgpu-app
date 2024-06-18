@@ -34,11 +34,12 @@ Rust version: 1.76.0
   - WGSL instancing with `@builtin(instance_index) idx: u32`
   - resize responsive
   - supports transparency
+  - supports rendering to texture
+  - supports custom additional uniforms
   - MSAA enabled by default
   - depth buffer z-indexing enabled by default
   - MVP transforms pre-built
-  - supports rendering to texture
-  - supports custom uniforms
+  - .obj model importing
 - Text renderer built on top of custom renderer
 - Input handler middleware interface
   - supports key binding
@@ -46,9 +47,9 @@ Rust version: 1.76.0
 ### Known Issues:
 
 ### To-do:
+- .gltf file model importing
 - Forward render lighting pass
 - Shadow rendering
-- More primitives
 - Physics
 - Audio
 - Model importing
