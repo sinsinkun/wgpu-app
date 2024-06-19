@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use std::thread;
-use std::time;
 use std::time::{Instant, Duration};
 
 use winit::application::ApplicationHandler;
@@ -18,8 +17,8 @@ use wgpu_renderer::Renderer;
 use app::AppEventLoop;
 
 // constants
-const WAIT_TIME: time::Duration = time::Duration::from_millis(1000);
-const POLL_SLEEP_TIME: time::Duration = time::Duration::from_millis(5);
+const WAIT_TIME: Duration = Duration::from_millis(1000);
+const POLL_SLEEP_TIME: Duration = Duration::from_millis(5);
 
 // definitions for winit window
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -230,7 +229,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 			Mode::WaitUntil => {
 				if !self.wait_cancelled {
 					event_loop.set_control_flow(
-						ControlFlow::WaitUntil(time::Instant::now() + WAIT_TIME)
+						ControlFlow::WaitUntil(Instant::now() + WAIT_TIME)
 					);
 				}
 			}
