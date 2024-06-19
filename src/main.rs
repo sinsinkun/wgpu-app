@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::thread;
 use std::time;
+use std::time::{Instant, Duration};
 
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
@@ -37,6 +38,10 @@ struct ControlFlowApp<'a> {
 	window: Option<Arc<Window>>,
 	app_event_loop: Option<AppEventLoop<'a>>,
 	window_size: (f32, f32),
+	last_frame: Instant,
+	frame_delta: Duration,
+	last_render_frame: Instant,
+	allow_redraw: bool,
 }
 
 impl Default for ControlFlowApp<'_> {
@@ -48,13 +53,29 @@ impl Default for ControlFlowApp<'_> {
 			close_requested: false,
 			window: None,
 			app_event_loop: None,
-			window_size: (0.0, 0.0)
+			window_size: (0.0, 0.0),
+			last_frame: Instant::now(),
+			frame_delta: Duration::from_millis(0),
+			last_render_frame: Instant::now(),
+			allow_redraw: true,
 		}
 	}
 }
 
 impl ApplicationHandler for ControlFlowApp<'_> {
 	fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
+		// calculate frame data
+		let new_frame = Instant::now();
+		let delta = new_frame - self.last_frame;
+		self.last_frame = new_frame;
+		self.frame_delta = delta;
+		// restrict rendering pace
+		let render_delta = new_frame - self.last_render_frame;
+		if self.request_redraw && render_delta > Duration::from_millis(15) {
+			self.last_render_frame = new_frame;
+			self.allow_redraw = true;
+		}
+
 		self.wait_cancelled = match cause {
 			StartCause::WaitCancelled { .. } => self.mode == Mode::WaitUntil,
 			_ => false,
@@ -169,6 +190,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 			WindowEvent::RedrawRequested => {
 				let window = self.window.as_ref().unwrap();
 				if let Some(app_base) = &mut self.app_event_loop {
+					app_base.pre_render(&self.frame_delta);
 					window.pre_present_notify();
 					match app_base.render() {
 						Ok(_) => (),
@@ -194,7 +216,10 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 				app_base.update();
 				app_base.input_handler.cleanup_cache();
 			}
-			self.window.as_ref().unwrap().request_redraw();
+			if self.allow_redraw {
+				self.allow_redraw = false;
+				self.window.as_ref().unwrap().request_redraw();
+			}
 		}
 
 		match self.mode {

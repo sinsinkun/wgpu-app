@@ -7,9 +7,7 @@ use crate::input_mapper::InputHandler;
 pub struct AppEventLoop<'a> {
   renderer: Renderer<'a>,
   pub input_handler: InputHandler,
-  frame: u32, // max value: ~4,295,000,000
-  last_frame_time: time::Instant,
-  new_frame_time: time::Instant,
+  render_frame: u32, // max value: ~4,295,000,000
   pipes: Vec<RPipelineId>,
   textures: Vec<RTextureId>,
   shapes: Vec<Shape>,
@@ -27,9 +25,7 @@ impl<'a> AppEventLoop<'a> {
       renderer: wgpu,
       input_handler,
       shapes: vec![],
-      frame: 0,
-      last_frame_time: time::Instant::now(),
-      new_frame_time: time::Instant::now(),
+      render_frame: 0,
       camera: cam,
       screen_center: (window_size.0 / 2.0, window_size.1 / 2.0),
       pipes: Vec::new(),
@@ -140,7 +136,7 @@ impl<'a> AppEventLoop<'a> {
     self.textures.push(texture4);
   }
 
-  // update logic (synchronous with render loop)
+  // update logic (asynchronous with render loop)
   pub fn update(&mut self) {
     // logic updates
     let input_cache = self.input_handler.output();
@@ -149,7 +145,11 @@ impl<'a> AppEventLoop<'a> {
     self.camera.position[1] += input_cache.move_y;
     self.camera.look_at[1] += 0.9 * input_cache.move_y;
     self.camera.position[2] += input_cache.move_z;
-    
+  }
+
+  // render logic updates (synchronous with render loop)
+  pub fn pre_render(&mut self, frame_time: &time::Duration) {
+    self.render_frame += 1;
     // render logic updates
     for obj in &mut self.shapes {
       if obj.id.0 == 1 {
@@ -160,19 +160,13 @@ impl<'a> AppEventLoop<'a> {
           bytemuck::cast_slice(&win_size)
         ])));
       } else {
-        obj.rotate_deg = self.frame as f32;
+        obj.rotate_deg = self.render_frame as f32;
         self.renderer.update_object(RObjectUpdate::from_shape(obj, Some(&self.camera), None));
       }
     }
-  }
 
-  // call render
-  pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-    self.frame += 1;
-    self.last_frame_time = self.new_frame_time;
-    self.new_frame_time = time::Instant::now();
-    let delta_t = self.new_frame_time - self.last_frame_time;
-    let fps = (1.0 / delta_t.as_secs_f32()) as u32;
+    // generate fps text
+    let fps = (1.0 / frame_time.as_secs_f32()) as u32;
     let fps_txt = "FPS: ".to_owned() + &fps.to_string();
     // find bottom left corner
     let y_max = (self.screen_center.1 * 2.0) as u32;
@@ -183,6 +177,10 @@ impl<'a> AppEventLoop<'a> {
     self.renderer.render_texture(&[], self.textures[2], Some([0.0, 0.0, 0.0, 0.0])); // clears texture background
     self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, y_max - 10], 1);
     self.renderer.render_str_on_texture(self.textures[2], "Camera controls: WASD, EQ", 18.0, [50, 50, 255], [5, y_max - 30], 1);
+  }
+
+  // render to screen (can cause frame limiting from requesting screen surface)
+  pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
     // render everything to screen
     match self.renderer.render(&self.pipes) {
       Ok(_) => Ok(()),
