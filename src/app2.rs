@@ -1,6 +1,6 @@
 use std::{fs, time};
 
-use crate::wgpu_renderer::{RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, RVertexAnim, Renderer, Shape};
+use crate::wgpu_renderer::{Primitives, RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, RVertexAnim, Renderer, Shape};
 use crate::input_mapper::InputHandler;
 
 pub struct AppEventLoop<'a> {
@@ -43,7 +43,7 @@ impl<'a> AppEventLoop<'a> {
           shader: &str,
           max_obj_count: 10,
           vertex_type: RPipelineSetup::VERTEX_TYPE_ANIM,
-          max_joints_count: 1,
+          max_joints_count: 5,
           ..Default::default()
         })
       }
@@ -52,7 +52,7 @@ impl<'a> AppEventLoop<'a> {
         self.renderer.add_pipeline(RPipelineSetup {
           max_obj_count: 10,
           vertex_type: RPipelineSetup::VERTEX_TYPE_ANIM,
-          max_joints_count: 1,
+          max_joints_count: 5,
           ..Default::default()
         })
       }
@@ -85,8 +85,28 @@ impl<'a> AppEventLoop<'a> {
         joint_ids: [0, 0, 0, 0], joint_weights: [1.0, 0.0, 0.0, 0.0]
       },
     ];
-    let rect = Shape::new_anim(&mut self.renderer, pipe1, obj_data, None);
+    let mut rect = Shape::new_anim(&mut self.renderer, pipe1, obj_data, None);
+    rect.position = [-5.0, 0.0, 0.0];
     self.shapes.push(rect);
+    
+    // initialize cylinder
+    let (cyl_data, cyl_i) = Primitives::cylinder(2.0, 2.5, 32);
+    let mut anim_cyl_data: Vec<RVertexAnim> = Vec::new();
+    let mut i: u32 = 0;
+    for v in cyl_data {
+      let av = match i {
+        2..=130 => {
+          if i % 2 == 0 { v.add_joints([1,0,0,0], [0.6, 0.0, 0.0, 0.0]) }
+          else { v.add_joints([0,0,0,0], [0.0, 0.0, 0.0, 0.0]) }
+        },
+        _ => v.add_joints([0,0,0,0], [0.0, 0.0, 0.0, 0.0])
+      };
+      anim_cyl_data.push(av);
+      i += 1;
+    }
+    let mut cyl = Shape::new_anim(&mut self.renderer, pipe1, anim_cyl_data, Some(cyl_i));
+    cyl.rotate_axis = [1.0, 0.2, 0.5];
+    self.shapes.push(cyl);
 
     // store ids
     self.pipes.push(pipe0);
@@ -117,9 +137,16 @@ impl<'a> AppEventLoop<'a> {
         0.0, y, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
         0.0, 0.0, 0.0, 1.0,
+      ],
+      [
+        x, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, y, 0.0,
+        0.0, 0.0, 0.0, 1.0,
       ]
     ];
     for obj in &mut self.shapes {
+      obj.rotate_deg = 0.2 * self.render_frame as f32;
       self.renderer.update_object(RObjectUpdate::from_shape(obj)
         .with_camera(&self.camera)
         .with_anim(transforms.clone())

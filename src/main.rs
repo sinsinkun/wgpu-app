@@ -130,6 +130,7 @@ impl ApplicationHandler for ControlFlowApp<'_> {
 					PhysicalKey::Code(KeyCode::Space) => {
 						if state == ElementState::Pressed {
 							self.request_redraw = !self.request_redraw;
+							self.allow_redraw = true;
 							// println!("request_redraw: {}", self.request_redraw);
 						}
 					}

@@ -209,7 +209,7 @@ impl Primitives {
     let bot_center = RVertex {
       position: [0.0, -h, 0.0],
       uv: [0.5, 0.5],
-      normal: [0.0, 1.0, 0.0]
+      normal: [0.0, -1.0, 0.0]
     };
     v.push(top_center);
     v.push(bot_center);

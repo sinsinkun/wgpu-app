@@ -1,4 +1,4 @@
-const MAX_JOINTS = 1;
+const MAX_JOINTS = 5;
 
 @group(0) @binding(0) var<uniform> mvp: MVP;
 @group(0) @binding(1) var txSampler: sampler;
@@ -41,8 +41,8 @@ fn vertexMain(input: VertIn) -> VertOut {
   }
   // mvp transform
   var out: VertOut;
-  let mvpMat = mvp.proj * mvp.view * mvp.model;
-  out.pos = mvpMat * local_pos;
+  let mvp_mat = mvp.proj * mvp.view * mvp.model;
+  out.pos = mvp_mat * local_pos;
   out.uv = input.uv;
   out.normal = local_norm.xyz;
   return out;
@@ -50,5 +50,6 @@ fn vertexMain(input: VertIn) -> VertOut {
 
 @fragment
 fn fragmentMain(input: VertOut) -> @location(0) vec4f {
-  return vec4f(input.uv, 0.5, 1.0);
+  let n = (1 + input.normal) / 2;
+  return vec4f(n, 1.0);
 }

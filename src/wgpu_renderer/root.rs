@@ -30,6 +30,17 @@ pub struct RVertex {
   pub uv: [f32; 2],
   pub normal: [f32; 3],
 }
+impl RVertex {
+  pub fn add_joints(&self, joints: [u32; 4], weights: [f32; 4]) -> RVertexAnim {
+    RVertexAnim {
+      position: self.position,
+      uv: self.uv,
+      normal: self.normal,
+      joint_ids: joints,
+      joint_weights: weights
+    }
+  }
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
@@ -852,6 +863,9 @@ impl<'a> Renderer<'a> {
     if pipe.max_joints_count > 0 && update.anim_transforms.len() > 0 {
       let mut anim_buffer: Vec<f32> = Vec::new();
       for i in 0..pipe.max_joints_count {
+        if i >= update.anim_transforms.len() as u32 {
+          break;
+        }
         // merge [f32; 16] arrays into single anim_buffer
         let a = update.anim_transforms[i as usize];
         anim_buffer.extend_from_slice(&a);
