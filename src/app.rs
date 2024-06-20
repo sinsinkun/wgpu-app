@@ -156,12 +156,10 @@ impl<'a> AppEventLoop<'a> {
         obj.position = [-self.screen_center.0 * 0.75, self.screen_center.1 * 0.75, 0.0];
         obj.scale = [self.screen_center.0, self.screen_center.1, 1.0];
         let win_size = vec![self.screen_center.0, self.screen_center.1];
-        self.renderer.update_object(RObjectUpdate::from_shape(obj, None, Some(vec![
-          bytemuck::cast_slice(&win_size)
-        ])));
+        self.renderer.update_object(RObjectUpdate::from_shape(obj).with_uniforms(vec![bytemuck::cast_slice(&win_size)]));
       } else {
         obj.rotate_deg = self.render_frame as f32;
-        self.renderer.update_object(RObjectUpdate::from_shape(obj, Some(&self.camera), None));
+        self.renderer.update_object(RObjectUpdate::from_shape(obj).with_camera(&self.camera));
       }
     }
 

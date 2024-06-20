@@ -9,7 +9,8 @@ pub struct Shape {
   pub rotate_deg: f32,
   pub scale: [f32; 3],
   pub visible: bool,
-  pub v_index: Option<Vec<f32>>
+  pub v_index: Option<Vec<f32>>,
+  pub anim_transforms: Vec<[f32; 16]>,
 }
 impl Shape {
   pub fn new(renderer: &mut Renderer, pipeline_id: RPipelineId, vertex_data: Vec<RVertex>, index_data: Option<Vec<u32>>) -> Self {
@@ -29,7 +30,30 @@ impl Shape {
       rotate_deg: 0.0,
       scale: [1.0, 1.0, 1.0],
       visible: true,
-      v_index: None
+      v_index: None,
+      anim_transforms: Vec::new(),
+    }
+  }
+  pub fn new_anim(renderer: &mut Renderer, pipeline_id: RPipelineId, vertex_data: Vec<RVertexAnim>, index_data: Option<Vec<u32>>) -> Self {
+    let mut setup = RObjectSetup {
+      pipeline_id,
+      anim_vertex_data: vertex_data,
+      vertex_type: RObjectSetup::VERTEX_TYPE_ANIM,
+      ..Default::default()
+    };
+    if let Some(indices) = index_data {
+      setup.indices = indices;
+    }
+    let id = renderer.add_object(setup);
+    Self {
+      id,
+      position: [0.0, 0.0, 0.0],
+      rotate_axis: [0.0, 0.0, 1.0],
+      rotate_deg: 0.0,
+      scale: [1.0, 1.0, 1.0],
+      visible: true,
+      v_index: None,
+      anim_transforms: Vec::new(),
     }
   }
 }
@@ -62,7 +86,7 @@ impl RCamera {
   pub fn new_persp(fov_y: f32, near: f32, far: f32) -> Self {
     Self {
       cam_type: RCamera::PERSPECTIVE,
-      position: [0.0, 0.0, 100.0],
+      position: [0.0, 0.0, 1.0],
       look_at: [0.0, 0.0, 0.0],
       up: [0.0, 1.0, 0.0],
       fov_y,
@@ -160,7 +184,8 @@ pub struct RObjectUpdate<'a> {
   pub scale: &'a [f32; 3],
   pub visible: bool,
   pub camera: Option<&'a RCamera>,
-  pub uniforms: Vec<&'a [u8]>
+  pub uniforms: Vec<&'a [u8]>,
+  pub anim_transforms: Vec<[f32; 16]>,
 }
 impl Default for RObjectUpdate<'_> {
   fn default() -> Self {
@@ -173,15 +198,12 @@ impl Default for RObjectUpdate<'_> {
       visible: true,
       camera: None,
       uniforms: Vec::new(),
+      anim_transforms: Vec::new(),
     }
   }
 }
 impl<'a> RObjectUpdate<'a> {
-  pub fn from_shape(shape: &'a Shape, camera: Option<&'a RCamera>, uniforms: Option<Vec<&'a [u8]>>) -> Self {
-    let u: Vec<&'a [u8]> = match uniforms {
-      Some(x) => x,
-      None => Vec::new()
-    };
+  pub fn from_shape(shape: &'a Shape) -> Self {
     RObjectUpdate {
       object_id: shape.id,
       translate: &shape.position,
@@ -189,8 +211,21 @@ impl<'a> RObjectUpdate<'a> {
       rotate_deg: shape.rotate_deg,
       scale: &shape.scale,
       visible: shape.visible,
-      camera,
-      uniforms: u
+      camera: None,
+      uniforms: Vec::new(),
+      anim_transforms: Vec::new(),
     }
+  }
+  pub fn with_camera(mut self, camera: &'a RCamera) -> Self {
+    self.camera = Some(camera);
+    self
+  }
+  pub fn with_uniforms(mut self, uniforms: Vec<&'a [u8]>) -> Self {
+    self.uniforms = uniforms;
+    self
+  }
+  pub fn with_anim(mut self, transforms: Vec<[f32; 16]>) -> Self {
+    self.anim_transforms = transforms;
+    self
   }
 }

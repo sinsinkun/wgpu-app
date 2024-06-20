@@ -501,7 +501,7 @@ impl<'a> Renderer<'a> {
     let vertex_attr_static = vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3];
     let vertex_attr_anim = vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3, 3 => Uint32x4, 4 => Float32x4];
     let vertex_layout = match setup.vertex_type {
-      1 => VertexBufferLayout {
+      RPipelineSetup::VERTEX_TYPE_ANIM => VertexBufferLayout {
         array_stride: std::mem::size_of::<RVertexAnim>() as BufferAddress,
         step_mode: VertexStepMode::Vertex,
         attributes: &vertex_attr_anim,
@@ -754,14 +754,30 @@ impl<'a> Renderer<'a> {
     let id = pipe.objects.len();
 
     // create vertex buffer
-    let vlen = obj_data.vertex_data.len();
-    let v_buffer = self.device.create_buffer(&BufferDescriptor {
-      label: Some("vertex-buffer"),
-      size: (std::mem::size_of::<RVertex>() * vlen) as u64,
-      usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-      mapped_at_creation: false
-    });
-    self.queue.write_buffer(&v_buffer, 0, bytemuck::cast_slice(&obj_data.vertex_data));
+    let vlen: usize;
+    let v_buffer: Buffer;
+    match obj_data.vertex_type {
+      RObjectSetup::VERTEX_TYPE_ANIM => {
+        vlen = obj_data.anim_vertex_data.len();
+        v_buffer = self.device.create_buffer(&BufferDescriptor {
+          label: Some("anim-vertex-buffer"),
+          size: (std::mem::size_of::<RVertexAnim>() * vlen) as u64,
+          usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+          mapped_at_creation: false
+        });
+        self.queue.write_buffer(&v_buffer, 0, bytemuck::cast_slice(&obj_data.anim_vertex_data));
+      }
+      _ => {
+        vlen = obj_data.vertex_data.len();
+        v_buffer = self.device.create_buffer(&BufferDescriptor {
+          label: Some("vertex-buffer"),
+          size: (std::mem::size_of::<RVertex>() * vlen) as u64,
+          usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+          mapped_at_creation: false
+        });
+        self.queue.write_buffer(&v_buffer, 0, bytemuck::cast_slice(&obj_data.vertex_data));
+      }
+    }
 
     // create index buffer
     let mut index_buffer: Option<Buffer> = None;
@@ -832,6 +848,16 @@ impl<'a> Renderer<'a> {
       (stride * obj.pipe_index as u32) as u64, 
       bytemuck::cast_slice(&mvp)
     );
+    // merge animation matrices into single buffer
+    if pipe.max_joints_count > 0 && update.anim_transforms.len() > 0 {
+      let mut anim_buffer: Vec<f32> = Vec::new();
+      for i in 0..pipe.max_joints_count {
+        // merge [f32; 16] arrays into single anim_buffer
+        let a = update.anim_transforms[i as usize];
+        anim_buffer.extend_from_slice(&a);
+      }
+      self.queue.write_buffer(&pipe.bind_group0.entries[1], 0, bytemuck::cast_slice(&anim_buffer));
+    }
     // update custom uniforms
     if update.uniforms.len() > 0 {
       if let Some(bind_group1) = &pipe.bind_group1 {

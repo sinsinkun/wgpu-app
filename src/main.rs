@@ -10,15 +10,15 @@ use winit::keyboard::{PhysicalKey, KeyCode};
 use winit::window::{Window, WindowId, CursorGrabMode};
 
 mod wgpu_renderer;
-mod app;
+mod app2;
 mod input_mapper;
 
 use wgpu_renderer::Renderer;
-use app::AppEventLoop;
+use app2::AppEventLoop;
 
 // constants
 const WAIT_TIME: Duration = Duration::from_millis(1000);
-const POLL_SLEEP_TIME: Duration = Duration::from_millis(5);
+const POLL_SLEEP_TIME: Duration = Duration::from_millis(1);
 
 // definitions for winit window
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
