@@ -29,7 +29,7 @@ fn vertexMain(input: VertIn) -> VertOut {
   let mvpMat = mvp.proj * mvp.view * mvp.model;
   out.pos = mvpMat * vec4f(input.pos, 1.0);
   out.uv = input.uv;
-  out.normal = input.normal;
+  out.normal = (mvp.model * vec4f(input.normal, 0.0)).xyz;
   return out;
 }
 

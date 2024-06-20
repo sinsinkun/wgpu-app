@@ -66,7 +66,7 @@ impl<'a> AppEventLoop<'a> {
       },
       RVertexAnim {
         position: [-1.0, -1.0, 0.0], uv: [0.0, 0.0], normal: [0.0, 0.0, 1.0],
-        joint_ids: [0, 0, 0, 0], joint_weights: [0.5, 0.0, 0.0, 0.0]
+        joint_ids: [0, 0, 0, 0], joint_weights: [0.0, 0.0, 0.0, 0.0]
       },
       RVertexAnim {
         position: [1.0, 1.0, 0.0], uv: [1.0, 1.0], normal: [0.0, 0.0, 1.0],
@@ -74,7 +74,7 @@ impl<'a> AppEventLoop<'a> {
       },
       RVertexAnim {
         position: [-1.0, -1.0, 0.0], uv: [0.0, 0.0], normal: [0.0, 0.0, 1.0],
-        joint_ids: [0, 0, 0, 0], joint_weights: [0.5, 0.0, 0.0, 0.0]
+        joint_ids: [0, 0, 0, 0], joint_weights: [0.0, 0.0, 0.0, 0.0]
       },
       RVertexAnim {
         position: [1.0, -1.0, 0.0], uv: [1.0, 0.0], normal: [0.0, 0.0, 1.0],
@@ -86,6 +86,7 @@ impl<'a> AppEventLoop<'a> {
       },
     ];
     let mut rect = Shape::new_anim(&mut self.renderer, pipe1, obj_data, None);
+    rect.rotate_axis = [0.0, 1.0, 0.0];
     rect.position = [-5.0, 0.0, 0.0];
     self.shapes.push(rect);
     

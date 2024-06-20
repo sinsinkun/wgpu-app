@@ -199,6 +199,56 @@ impl Mat4 {
     }
     dst
   }
+  // helpers for inverting matrix
+  fn determinant_3x3(m: &[f32; 9]) -> f32 {
+    m[0] * (m[4] * m[8] - m[5] * m[7]) -
+    m[1] * (m[3] * m[8] - m[5] * m[6]) +
+    m[2] * (m[3] * m[7] - m[4] * m[6])
+  }
+  fn cofactor_4x4(m: &[f32; 16], row: usize, col: usize) -> f32 {
+    let mut submatrix = [0.0; 9];
+    let mut sub_index = 0;
+    for i in 0..4 {
+      if i == row { continue; }
+      for j in 0..4 {
+        if j == col { continue; }
+        submatrix[sub_index] = m[i * 4 + j];
+        sub_index += 1;
+      }
+    }
+    Self::determinant_3x3(&submatrix) * if (row + col) % 2 == 0 { 1.0 } else { -1.0 }
+  }
+  fn determinant_4x4(m: &[f32; 16]) -> f32 {
+    let mut det = 0.0;
+    for i in 0..4 {
+      det += m[i] * Self::cofactor_4x4(m, 0, i);
+    }
+    det
+  }
+  fn adjugate_4x4(m: &[f32; 16]) -> [f32; 16] {
+    let mut adjugate = [0.0; 16];
+    for i in 0..4 {
+      for j in 0..4 {
+        adjugate[j * 4 + i] = Self::cofactor_4x4(m, i, j);
+      }
+    }
+    adjugate
+  }
+  pub fn inverse(src: &[f32;16]) -> [f32; 16] {
+    let det = Self::determinant_4x4(src);
+    if det == 0.0 {
+      println!("ERR: cannot inverse matrix with determinant of 0 - returning identity");
+      return Mat4::identity();
+    }
+
+    let adj = Self::adjugate_4x4(src);
+    let mut dst = [0.0; 16];
+    for i in 0..16 {
+      dst[i] = adj[i] / det;
+    }
+
+    dst
+  }
   pub fn view_rot(cam: &[f32; 3], target: &[f32; 3], up: &[f32; 3]) ->  [f32;16] {
     let fwd = Vec3::normalize(&Vec3::subtract(cam, target));
     let right = Vec3::normalize(&Vec3::cross(up, &fwd));
@@ -295,5 +345,37 @@ mod lin_alg_tests {
     let a = Mat4::rotate(&[1.0, 0.0, 0.0], 60.0);
     let b = Mat4::rotate_euler(60.0, 0.0, 0.0);
     assert_eq!(a, b);
+  }
+  #[test]
+  fn mat4_transpose() {
+    let o = Mat4::transpose(&[
+      1.0, 2.0, 3.0, 4.0,
+      5.0, 6.0, 7.0, 8.0,
+      9.0, 3.0, 2.0, 4.0,
+      0.0, 1.0, 2.0, 5.0
+    ]);
+    let ans: [f32; 16] = [
+      1.0, 5.0, 9.0, 0.0,
+      2.0, 6.0, 3.0, 1.0,
+      3.0, 7.0, 2.0, 2.0,
+      4.0, 8.0, 4.0, 5.0
+    ];
+    assert_eq!(o, ans);
+  }
+  #[test]
+  fn mat4_inverse() {
+    let o = Mat4::inverse(&[
+      1.0, 2.0, 3.0, 4.0,
+      5.0, 6.0, 7.0, 8.0,
+      9.0, 3.0, 2.0, 4.0,
+      0.0, 1.0, 2.0, 5.0
+    ]);
+    let ans: [f32; 16] = [
+      0.825, -0.325, 0.2, -0.3,
+      -4.025, 1.525, -0.4, 1.1,
+      3.575, -1.075, 0.2, -1.3,
+      -0.625, 0.125, 0.0, 0.5
+    ];
+    assert_eq!(o, ans);
   }
 }
