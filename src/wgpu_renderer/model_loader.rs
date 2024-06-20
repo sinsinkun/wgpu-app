@@ -2,7 +2,7 @@
 
 use std::{fs, str::Split};
 
-use crate::wgpu_renderer::RVertex;
+use super::RVertex;
 
 #[derive(Debug, PartialEq)]
 pub enum ModelError {

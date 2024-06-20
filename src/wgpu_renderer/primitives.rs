@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::wgpu_renderer::{RVertex, PI};
+use super::{RVertex, PI};
 
 // note: uv_y is inverted
 pub struct Primitives;

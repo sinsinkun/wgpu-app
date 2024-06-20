@@ -6,7 +6,7 @@ use image::{io::Reader as ImageReader, DynamicImage, GenericImageView};
 use bytemuck::{Pod, Zeroable};
 use wgpu::*;
 
-use crate::wgpu_renderer::{
+use super::{
   // utils
   Mat4,
   Primitives,
@@ -31,6 +31,16 @@ pub struct RVertex {
   pub normal: [f32; 3],
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
+pub struct RVertexAnim {
+  pub position: [f32; 3],
+  pub uv: [f32; 2],
+  pub normal: [f32; 3],
+  pub joint_ids: [u32; 4],
+  pub joint_weights: [f32; 4]
+}
+
 #[derive(Debug)]
 pub struct RObject {
   pub visible: bool,
@@ -53,6 +63,8 @@ pub struct RPipeline {
   pipe: wgpu::RenderPipeline,
   objects: Vec<RObject>,
   max_obj_count: usize,
+  vertex_type: u8,
+  max_joints_count: u32,
   bind_group0: RBindGroup,
   bind_group1: Option<RBindGroup>,
   // bind_group2: Option<RBindGroup>,
@@ -370,7 +382,7 @@ impl<'a> Renderer<'a> {
       let new_bind_id = {
         let pipeline = &self.pipelines[p_id.0];
         let pipe = &pipeline.pipe;
-        self.add_bind_group0(pipe, pipeline.max_obj_count, Some(texture_id), None) // TODO: handle resizing second texture
+        self.add_bind_group0(pipe, pipeline.max_obj_count, Some(texture_id), None, pipeline.vertex_type, pipeline.max_joints_count) // TODO: handle resizing second texture
       };
       let pipeline = &mut self.pipelines[p_id.0];
       pipeline.bind_group0 = new_bind_id;
@@ -392,50 +404,64 @@ impl<'a> Renderer<'a> {
       label: Some("shader-module"),
       source: ShaderSource::Wgsl(setup.shader.into()),
     });
+    // switch between static/dynamic vertex bind group entries
+    let mut bind_group0_entries: Vec<BindGroupLayoutEntry> = vec![
+      // mvp matrix
+      BindGroupLayoutEntry {
+        binding: 0,
+        visibility: ShaderStages::VERTEX,
+        ty: BindingType::Buffer {
+          ty: BufferBindingType::Uniform,
+          has_dynamic_offset: true,
+          min_binding_size: None,
+        },
+        count: None,
+      },
+      // texture sampler
+      BindGroupLayoutEntry {
+        binding: 1,
+        visibility: ShaderStages::FRAGMENT,
+        ty: BindingType::Sampler(SamplerBindingType::Filtering),
+        count: None,
+      },
+      // texture 1
+      BindGroupLayoutEntry {
+        binding: 2,
+        visibility: ShaderStages::FRAGMENT,
+        ty: BindingType::Texture {
+          sample_type: TextureSampleType::Float { filterable: true },
+          view_dimension: TextureViewDimension::D2,
+          multisampled: false,
+        },
+        count: None,
+      },
+      // texture 2
+      BindGroupLayoutEntry {
+        binding: 3,
+        visibility: ShaderStages::FRAGMENT,
+        ty: BindingType::Texture {
+          sample_type: TextureSampleType::Float { filterable: true },
+          view_dimension: TextureViewDimension::D2,
+          multisampled: false,
+        },
+        count: None,
+      },
+    ];
+    if setup.vertex_type == RPipelineSetup::VERTEX_TYPE_ANIM {
+      bind_group0_entries.push(BindGroupLayoutEntry {
+        binding: 4,
+        visibility: ShaderStages::VERTEX,
+        ty: BindingType::Buffer {
+          ty: BufferBindingType::Uniform,
+          has_dynamic_offset: false,
+          min_binding_size: None,
+        },
+        count: None,
+      });
+    }
     let bind_group0_layout = self.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       label: Some("bind-group0-layout"),
-      entries: &[
-        // mvp matrix
-        BindGroupLayoutEntry {
-          binding: 0,
-          visibility: ShaderStages::VERTEX,
-          ty: BindingType::Buffer {
-            ty: BufferBindingType::Uniform,
-            has_dynamic_offset: true,
-            min_binding_size: None,
-          },
-          count: None,
-        },
-        // texture sampler
-        BindGroupLayoutEntry {
-          binding: 1,
-          visibility: ShaderStages::FRAGMENT,
-          ty: BindingType::Sampler(SamplerBindingType::Filtering),
-          count: None,
-        },
-        // texture 1
-        BindGroupLayoutEntry {
-          binding: 2,
-          visibility: ShaderStages::FRAGMENT,
-          ty: BindingType::Texture {
-            sample_type: TextureSampleType::Float { filterable: true },
-            view_dimension: TextureViewDimension::D2,
-            multisampled: false,
-          },
-          count: None,
-        },
-        // texture 2
-        BindGroupLayoutEntry {
-          binding: 3,
-          visibility: ShaderStages::FRAGMENT,
-          ty: BindingType::Texture {
-            sample_type: TextureSampleType::Float { filterable: true },
-            view_dimension: TextureViewDimension::D2,
-            multisampled: false,
-          },
-          count: None,
-        },
-      ]
+      entries: &bind_group0_entries
     });
     let mut bind_group_container: Vec<&BindGroupLayout> = vec![&bind_group0_layout];
     // build custom bind group layout
@@ -471,17 +497,28 @@ impl<'a> Renderer<'a> {
       bind_group_layouts: bind_group_container.as_slice(),
       push_constant_ranges: &[]
     });
+    // switch between static/dynamic vertex layouts
+    let vertex_attr_static = vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3];
+    let vertex_attr_anim = vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3, 3 => Uint32x4, 4 => Float32x4];
+    let vertex_layout = match setup.vertex_type {
+      1 => VertexBufferLayout {
+        array_stride: std::mem::size_of::<RVertexAnim>() as BufferAddress,
+        step_mode: VertexStepMode::Vertex,
+        attributes: &vertex_attr_anim,
+      },
+      _ => VertexBufferLayout {
+        array_stride: std::mem::size_of::<RVertex>() as BufferAddress,
+        step_mode: VertexStepMode::Vertex,
+        attributes: &vertex_attr_static,
+      }
+    };
     let pipeline = self.device.create_render_pipeline(&RenderPipelineDescriptor {
       label: Some("render-pipeline"),
       layout: Some(&pipeline_layout),
       vertex: VertexState {
         module: &shader_mod,
         entry_point: setup.vertex_fn,
-        buffers: &[VertexBufferLayout {
-          array_stride: std::mem::size_of::<RVertex>() as BufferAddress,
-          step_mode: VertexStepMode::Vertex,
-          attributes: &vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32x3],
-        }],
+        buffers: &[vertex_layout],
         compilation_options: PipelineCompilationOptions::default(),
       },
       fragment: Some(FragmentState{
@@ -525,7 +562,7 @@ impl<'a> Renderer<'a> {
     });
 
     // build bind groups
-    let bind_group0: RBindGroup = self.add_bind_group0(&pipeline, setup.max_obj_count, setup.texture1_id, setup.texture2_id);
+    let bind_group0: RBindGroup = self.add_bind_group0(&pipeline, setup.max_obj_count, setup.texture1_id, setup.texture2_id, setup.vertex_type, setup.max_joints_count);
     let mut bind_group1: Option<RBindGroup> = None;
     if setup.uniforms.len() > 0 {
       bind_group1 = Some(self.add_bind_group1(&pipeline, setup.max_obj_count, setup.uniforms));
@@ -535,6 +572,8 @@ impl<'a> Renderer<'a> {
       pipe: pipeline,
       objects: Vec::new(),
       max_obj_count: setup.max_obj_count,
+      vertex_type: setup.vertex_type,
+      max_joints_count: setup.max_joints_count,
       bind_group0,
       bind_group1,
     };
@@ -547,6 +586,8 @@ impl<'a> Renderer<'a> {
     max_obj_count: usize,
     texture1: Option<RTextureId>,
     texture2: Option<RTextureId>,
+    vertex_type: u8,
+    max_joints: u32,
   ) -> RBindGroup {
     let min_stride = self.limits.min_uniform_buffer_offset_alignment;
     // create mvp buffer
@@ -595,36 +636,59 @@ impl<'a> Renderer<'a> {
       mipmap_filter: FilterMode::Nearest,
       ..Default::default()
     });
-    // create bind group
+    // create bind entries
     let mvp_size = NonZeroU64::new(192); // 4 bytes * 4 rows * 4 columns * 3 matrices
+    let mut bind_entries: Vec<BindGroupEntry> = vec![
+      BindGroupEntry {
+        binding: 0,
+        resource: BindingResource::Buffer(BufferBinding {
+          buffer: &mvp_buffer, offset: 0, size: mvp_size
+        })
+      },
+      BindGroupEntry {
+        binding: 1,
+        resource: BindingResource::Sampler(&sampler)
+      },
+      BindGroupEntry {
+        binding: 2,
+        resource: BindingResource::TextureView(&texture1_view)
+      },
+      BindGroupEntry {
+        binding: 3,
+        resource: BindingResource::TextureView(&texture2_view)
+      },
+    ];
+    // create joints matrix buffer
+    let joints_buffer = self.device.create_buffer(&BufferDescriptor {
+      label: Some("joint-transforms-buffer"),
+      size: (max_joints * 4 * 4 * 4).into(), // 4x4 matrix of f32 values
+      usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+      mapped_at_creation: false
+    });
+    if vertex_type == RPipelineSetup::VERTEX_TYPE_ANIM {
+      bind_entries.push(BindGroupEntry {
+        binding: 4,
+        resource: BindingResource::Buffer(BufferBinding {
+          buffer: &joints_buffer, offset: 0, size: None
+        })
+      });
+    }
+    
+    // create bind group
     let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
       label: Some("bind-group-0"),
       layout: &pipeline.get_bind_group_layout(0),
-      entries: &[
-        BindGroupEntry {
-          binding: 0,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &mvp_buffer, offset: 0, size: mvp_size
-          })
-        },
-        BindGroupEntry {
-          binding: 1,
-          resource: BindingResource::Sampler(&sampler)
-        },
-        BindGroupEntry {
-          binding: 2,
-          resource: BindingResource::TextureView(&texture1_view)
-        },
-        BindGroupEntry {
-          binding: 3,
-          resource: BindingResource::TextureView(&texture2_view)
-        },
-      ]
+      entries: &bind_entries
     });
 
-    return RBindGroup {
+    // create output
+    let mut output_entries = vec![mvp_buffer];
+    if vertex_type == RPipelineSetup::VERTEX_TYPE_ANIM {
+      output_entries.push(joints_buffer);
+    }
+    RBindGroup {
       base: bind_group,
-      entries: vec![mvp_buffer]
+      entries: output_entries
     }
   }
 

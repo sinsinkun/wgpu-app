@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::wgpu_renderer::{Renderer, RTextureId, RPipelineId, RObjectId, RVertex};
+use super::{Renderer, RTextureId, RPipelineId, RObjectId, RVertex, RVertexAnim};
 
 // helper for defining object transform data
 pub struct Shape {
@@ -94,6 +94,8 @@ pub struct RPipelineSetup<'a> {
   pub vertex_fn: &'a str,
   pub fragment_fn: &'a str,
   pub uniforms: Vec<RUniformSetup>,
+  pub vertex_type: u8,
+  pub max_joints_count: u32,
 }
 impl Default for RPipelineSetup<'_> {
   fn default() -> Self {
@@ -106,13 +108,19 @@ impl Default for RPipelineSetup<'_> {
         vertex_fn: "vertexMain",
         fragment_fn: "fragmentMain",
         uniforms: Vec::new(),
+        vertex_type: RPipelineSetup::VERTEX_TYPE_STATIC,
+        max_joints_count: 0,
       }
   }
 }
 impl RPipelineSetup<'_> {
+  // cull mode constants
   pub const CULL_MODE_NONE: u8 = 0;
   pub const CULL_MODE_BACK: u8 = 1;
   pub const CULL_MODE_FRONT: u8 = 2;
+  // vertex type constants
+  pub const VERTEX_TYPE_STATIC: u8 = 0;
+  pub const VERTEX_TYPE_ANIM: u8 = 1;
 }
 
 // helper for building new render object
@@ -121,7 +129,9 @@ pub struct RObjectSetup {
   pub pipeline_id: RPipelineId,
   pub vertex_data: Vec<RVertex>,
   pub instances: u32,
-  pub indices: Vec<u32>
+  pub indices: Vec<u32>,
+  pub vertex_type: u8,
+  pub anim_vertex_data: Vec<RVertexAnim>,
 }
 impl Default for RObjectSetup {
   fn default() -> Self {
@@ -130,8 +140,14 @@ impl Default for RObjectSetup {
       vertex_data: Vec::new(),
       indices: Vec::new(),
       instances: 1,
+      anim_vertex_data: Vec::new(),
+      vertex_type: RObjectSetup::VERTEX_TYPE_STATIC,
     }
   }
+}
+impl RObjectSetup {
+  pub const VERTEX_TYPE_STATIC: u8 = 0;
+  pub const VERTEX_TYPE_ANIM: u8 = 1;
 }
 
 // helper for updating render object
