@@ -40,6 +40,7 @@ Rust version: 1.76.0
   - depth buffer z-indexing enabled by default
   - MVP transforms pre-built
   - .obj model importing
+  - basic support for joint based animations
 - Text renderer built on top of custom renderer
 - Input handler middleware interface
   - supports key binding
@@ -50,6 +51,6 @@ Rust version: 1.76.0
 - .gltf file model importing
 - Forward render lighting pass
 - Shadow rendering
-- Animations
+- Animations handling util
 - Physics
 - Audio
