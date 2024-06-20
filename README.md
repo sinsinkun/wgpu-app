@@ -50,6 +50,6 @@ Rust version: 1.76.0
 - .gltf file model importing
 - Forward render lighting pass
 - Shadow rendering
+- Animations
 - Physics
 - Audio
-- Model importing
