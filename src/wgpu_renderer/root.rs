@@ -133,7 +133,7 @@ impl<'a> Renderer<'a> {
     // grab device & queue from adapter
     let (device, queue) = adapter.request_device(
       &wgpu::DeviceDescriptor {
-        required_features: wgpu::Features::empty(),
+        required_features: wgpu::Features::POLYGON_MODE_LINE | wgpu::Features::POLYGON_MODE_POINT,
         required_limits: { wgpu::Limits::default() },
         label: None,
       },
@@ -410,6 +410,13 @@ impl<'a> Renderer<'a> {
       _ => None
     };
 
+    // translate polygon mode
+    let polygon_mode: PolygonMode = match setup.poly_mode {
+      1 => PolygonMode::Line,
+      2 => PolygonMode::Point,
+      _ => PolygonMode::Fill
+    };
+
     // build render pipeline
     let shader_mod = self.device.create_shader_module(ShaderModuleDescriptor {
       label: Some("shader-module"),
@@ -567,6 +574,7 @@ impl<'a> Renderer<'a> {
       }),
       primitive: PrimitiveState {
         cull_mode,
+        polygon_mode,
         ..PrimitiveState::default()
       },
       multiview: None,

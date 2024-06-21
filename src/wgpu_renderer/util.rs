@@ -115,6 +115,7 @@ pub struct RPipelineSetup<'a> {
   pub texture1_id: Option<RTextureId>,
   pub texture2_id: Option<RTextureId>,
   pub cull_mode: u8,
+  pub poly_mode: u8,
   pub vertex_fn: &'a str,
   pub fragment_fn: &'a str,
   pub uniforms: Vec<RUniformSetup>,
@@ -129,6 +130,7 @@ impl Default for RPipelineSetup<'_> {
         texture1_id: None,
         texture2_id: None,
         cull_mode: RPipelineSetup::CULL_MODE_NONE,
+        poly_mode: RPipelineSetup::POLY_MODE_TRI,
         vertex_fn: "vertexMain",
         fragment_fn: "fragmentMain",
         uniforms: Vec::new(),
@@ -145,6 +147,10 @@ impl RPipelineSetup<'_> {
   // vertex type constants
   pub const VERTEX_TYPE_STATIC: u8 = 0;
   pub const VERTEX_TYPE_ANIM: u8 = 1;
+  // polygon mode constants
+  pub const POLY_MODE_TRI: u8 = 0;
+  pub const POLY_MODE_LINE: u8 = 1;
+  pub const POLY_MODE_POINT: u8 = 2;
 }
 
 // helper for building new render object

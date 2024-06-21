@@ -43,6 +43,7 @@ impl<'a> AppEventLoop<'a> {
           shader: &str,
           max_obj_count: 10,
           vertex_type: RPipelineSetup::VERTEX_TYPE_ANIM,
+          poly_mode: RPipelineSetup::POLY_MODE_LINE,
           max_joints_count: 5,
           ..Default::default()
         })
