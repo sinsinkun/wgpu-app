@@ -411,10 +411,10 @@ impl<'a> Renderer<'a> {
     };
 
     // translate polygon mode
-    let polygon_mode: PolygonMode = match setup.poly_mode {
-      1 => PolygonMode::Line,
-      2 => PolygonMode::Point,
-      _ => PolygonMode::Fill
+    let (polygon_mode, topology): (PolygonMode, PrimitiveTopology) = match setup.poly_mode {
+      1 => (PolygonMode::Line, PrimitiveTopology::LineList),
+      2 => (PolygonMode::Point, PrimitiveTopology::PointList),
+      _ => (PolygonMode::Fill, PrimitiveTopology::TriangleList),
     };
 
     // build render pipeline
@@ -575,6 +575,7 @@ impl<'a> Renderer<'a> {
       primitive: PrimitiveState {
         cull_mode,
         polygon_mode,
+        topology,
         ..PrimitiveState::default()
       },
       multiview: None,

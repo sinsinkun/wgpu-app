@@ -1,6 +1,6 @@
 use std::{fs, time};
 
-use crate::wgpu_renderer::{Primitives, RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, RVertexAnim, Renderer, Shape};
+use crate::wgpu_renderer::{Primitives, RCamera, RObjectUpdate, RPipelineId, RPipelineSetup, RTextureId, RVertex, RVertexAnim, Renderer, Shape};
 use crate::input_mapper::InputHandler;
 
 pub struct AppEventLoop<'a> {
@@ -58,6 +58,20 @@ impl<'a> AppEventLoop<'a> {
         })
       }
     };
+    // initalize static pipeline
+    let pipe2 = self.renderer.add_pipeline(RPipelineSetup {
+      max_obj_count: 10,
+      poly_mode: RPipelineSetup::POLY_MODE_POINT,
+      ..Default::default()
+    });
+
+    // initalize static cube
+    let mut cube_data = Primitives::cube(2.0, 2.0, 2.0);
+    cube_data.push(RVertex{ position: [0.0, 0.0, 0.0], uv: [0.5, 0.5], normal: [0.0, 0.0, 0.0] });
+    let mut cube = Shape::new(&mut self.renderer, pipe2, cube_data, None);
+    cube.position = [5.0, 0.0, 0.0];
+    cube.rotate_axis = [0.0, 1.0, 0.0];
+    self.shapes.push(cube);
 
     // initialize anim object
     let obj_data: Vec<RVertexAnim> = vec![
@@ -113,6 +127,7 @@ impl<'a> AppEventLoop<'a> {
     // store ids
     self.pipes.push(pipe0);
     self.pipes.push(pipe1);
+    self.pipes.push(pipe2);
     self.textures.push(texture0);
   }
 
