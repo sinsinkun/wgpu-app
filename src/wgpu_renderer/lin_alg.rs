@@ -260,10 +260,23 @@ impl Mat4 {
       0.0, 0.0, 0.0, 1.0
     ]
   }
+  pub fn multiply_vec4(mat: &[f32; 16], vec: &[f32; 4]) -> [f32; 4] {
+    let mut out = [0.0; 4];
+    for i in 0..4 {
+      for j in 0..4 {
+        out[i] += mat[j * 4 + i] * vec[j];
+      }
+    }
+    out
+  }
 }
 
 pub struct Vec3;
 impl Vec3 {
+  pub fn size_in_bytes() -> u32 { 3 * 3 }
+  pub fn new(x: f32, y:f32, z:f32) -> [f32; 3] {
+    [x, y, z]
+  }
   pub fn add(v1: &[f32; 3], v2: &[f32; 3]) -> [f32; 3] {
     [
       v1[0] + v2[0],

@@ -10,11 +10,11 @@ use winit::keyboard::{PhysicalKey, KeyCode};
 use winit::window::{Window, WindowId, CursorGrabMode};
 
 mod wgpu_renderer;
-mod app2;
+mod app;
 mod input_mapper;
 
 use wgpu_renderer::Renderer;
-use app2::AppEventLoop;
+use app::AppEventLoop;
 
 // constants
 const WAIT_TIME: Duration = Duration::from_millis(1000);
