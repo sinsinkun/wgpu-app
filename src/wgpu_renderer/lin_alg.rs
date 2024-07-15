@@ -269,6 +269,16 @@ impl Mat4 {
     }
     out
   }
+  pub fn print(mat: &[f32; 16]) -> String {
+    let mut out = "[".to_owned();
+    for i in 0..16 {
+      out += &format!("{:.4}", mat[i]);
+      if i != 0 && i != 15 && i % 4 == 3 { out += ",\n   " }
+      else if i != 15 { out += ", "}
+    }
+    out += "]";
+    out
+  }
 }
 
 pub struct Vec3;
@@ -390,5 +400,27 @@ mod lin_alg_tests {
       -0.625, 0.125, 0.0, 0.5
     ];
     assert_eq!(o, ans);
+  }
+  #[test]
+  fn mvp_test() {
+    // model
+    let model_r = Mat4::rotate(&[0.0, 1.0, 0.0], 0.0);
+    let model_t = Mat4::translate(0.0, 0.0, 400.0);
+    let model = Mat4::multiply(&model_r, &model_t);
+    // view
+    let view_t = Mat4::translate(-0.0, -0.0, -200.0);
+    let view_r = Mat4::view_rot(&[0.0, 0.0, 200.0], &[0.0, 0.0, 0.0], &[0.0, 1.0, 0.0]);
+    let view = Mat4::multiply(&view_r, &view_t);
+    // proj
+    let proj = Mat4::perspective(60.0, 600.0/800.0, 1.0, 1000.0);
+    // mvp
+    let mvp_temp = Mat4::multiply(&model, &view);
+    let mvp = Mat4::multiply(&proj, &mvp_temp);
+    let p: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
+    let clip_p = Mat4::multiply_vec4(&mvp, &p);
+
+    let mvp_txt = Mat4::print(&mvp);
+    println!("mvp: {mvp_txt} x p: {p:?} = clip_p: {clip_p:.4?}\n");
+    assert!(true); // use cargo test mvp_test -- --nocapture
   }
 }
