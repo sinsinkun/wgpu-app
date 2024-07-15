@@ -35,7 +35,7 @@ impl<'a> AppEventLoop<'a> {
 
   // initialize app objects
   pub fn init(&mut self) {
-    // initialize pipeline
+    // initialize pipeline for objects
     let texture1 = self.renderer.add_texture(1200, 1200, Some(Path::new("assets/test_uv_map.png")), false);
     let texture4 = self.renderer.add_texture(800, 800, None, false);
     let texture2 = self.renderer.add_texture(
@@ -51,6 +51,7 @@ impl<'a> AppEventLoop<'a> {
       cull_mode: RPipelineSetup::CULL_MODE_BACK,
       ..Default::default()
     });
+    // pipeline for miniview
     let pipe2 = match fs::read_to_string("assets/miniview.wgsl") {
       Ok(str) => { 
         self.renderer.add_pipeline(RPipelineSetup {
@@ -81,6 +82,7 @@ impl<'a> AppEventLoop<'a> {
     let (texture3, pipe3) = self.renderer.add_overlay_pipeline();
     self.renderer.render_str_on_texture(texture4, "Marked", 200.0, [255, 0, 0], [40, 450], 10);
 
+    // pipeline for 3d model
     let pipe4 = self.renderer.add_pipeline(RPipelineSetup {
       max_obj_count: 10,
       cull_mode: RPipelineSetup::CULL_MODE_BACK,
@@ -172,7 +174,7 @@ impl<'a> AppEventLoop<'a> {
     // render cubes onto texture
     self.renderer.render_texture(&self.pipes[0..1], self.textures[1], Some([0.1, 0.0, 0.3, 1.0]));
     // render text onto texture
-    self.renderer.render_texture(&[], self.textures[2], Some([0.0, 0.0, 0.0, 0.0])); // clears texture background
+    self.renderer.render_texture(&[], self.textures[2], Some([0.0, 0.0, 0.0, 0.0])); // clears existing text texture
     self.renderer.render_str_on_texture(self.textures[2], &fps_txt, 20.0, [0, 255, 0], [5, y_max - 10], 1);
     self.renderer.render_str_on_texture(self.textures[2], "Camera controls: WASD, EQ", 18.0, [50, 50, 255], [5, y_max - 30], 1);
   }
